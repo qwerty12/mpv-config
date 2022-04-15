@@ -1,0 +1,1 @@
+../../scripts/file-browser/addons/find.lua
