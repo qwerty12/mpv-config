@@ -52,7 +52,7 @@ function OSDClock:_show_clock()
     local scale = 1.6
     local fontsize = tonumber(mp.get_property("options/osd-font-size")) / scale
         fontsize = math.floor(fontsize)
-    --msg.info(fontsize)
+    -- msg.info(fontsize)
     --
     local ass = assdraw:ass_new()
     ass:new_event()
@@ -70,21 +70,24 @@ function clear_osd()
 end
 
 function OSDClock:toggle_show_clock(val)
+    local trues = {["true"]=true, ["yes"] = true}
     if self.tobj then
-        if not val then
+        if trues[val] ~= true then
             self.tobj:kill()
             self.tobj = nil
             clear_osd()
         end
-    elseif val then
-        self.tobj = mp.add_periodic_timer(initial and 1 or update_timeout,
+    elseif val == nil or trues[val] == true then
+        self.tobj = mp.add_periodic_timer(not initial and update_timeout or 0.1,
             function() self:_show_clock() end)
         self:_show_clock()
     end
 end
 
 local osd_clock = OSDClock:new()
-
-mp.observe_property("fullscreen", "bool", function(n, v)
+function toggle_show_clock(v)
     osd_clock:toggle_show_clock(v)
-end)
+end
+
+mp.register_script_message("show-clock", toggle_show_clock)
+
