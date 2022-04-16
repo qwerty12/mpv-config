@@ -22,7 +22,7 @@ o = {
     path = "subliminal",    -- absolute path to subliminal if not on PATH
     languages = "en,eng", -- list of IETF languages to search
     forceutf8 = true,       -- Force subtitles to be saved as utf-8
-    forcedownload = false,  -- Force download of all languages requested
+    forcedownload = true,  -- Force download of all languages requested
 
     -- Some providers need credentials to be used.
     -- This isn't necessary unless you want these providers.
@@ -108,6 +108,9 @@ function main()
     -- only interested in Addic7ed
     table.insert(t.args, "-p")
     table.insert(t.args, "addic7ed")
+
+    -- prefer HI subtitles
+    table.insert(t.args, "-hi")
 
     table.insert(t.args, path)
     msg.debug(string.format("Running: \"%s\"", table.concat(t.args,'" "')))
