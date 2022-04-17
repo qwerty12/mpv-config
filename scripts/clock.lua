@@ -49,7 +49,7 @@ function OSDClock:_show_clock()
         end
     end
 
-    local scale = 1.6
+    local scale = 1.35
     local fontsize = tonumber(mp.get_property("options/osd-font-size")) / scale
         fontsize = math.floor(fontsize)
     -- msg.info(fontsize)
