@@ -8,7 +8,7 @@
     {
         "key": "Ctrl+c",
         "command": [
-            ["run", "powershell", "-command", "Set-Clipboard", "%F"],
+            ["run", "powershell", "-noprofile", "-command", "Set-Clipboard", "%F"],
             ["print-text", "copied filepath to clipboard"]
         ],
         "multiselect": true,
@@ -16,12 +16,12 @@
     },
     {
         "key": "Ctrl+o",
-        "command": ["run", "powershell", "-command", "explorer.exe", "(( %P ).TrimEnd('/') -replace '/', '\\' )"],
+        "command": ["run", "powershell", "-noprofile", "-command", "explorer.exe", "(( %P ).TrimEnd('/') -replace '/', '\\' )"],
         "multiselect": false
     },
     {
         "key": "Ctrl+O",
-        "command": ["run", "powershell", "-command", "explorer.exe", "(( %F ).TrimEnd('/') -replace '/', '\\' )"],
+        "command": ["run", "powershell", "-noprofile", "-command", "explorer.exe", "(( %F ).TrimEnd('/') -replace '/', '\\' )"],
         "filter": "dir",
         "multiselect": true
     },

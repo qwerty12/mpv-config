@@ -12,13 +12,13 @@ A modified [osc-potplayer-box-knob-or-bar-0.lua](https://github.com/422658476/MP
 
     * I use `gpu-hq` except for anything above 1080
 
-    * For 1080 content, [autoscaling.lua](https://github.com/kevinlekiller/mpv_scripts/blob/master/autoscaling/auto_scaling.lua) disables scaling
+    * For content close to your display's resolution, [autoscaling.lua](https://github.com/kevinlekiller/mpv_scripts/blob/master/autoscaling/auto_scaling.lua) disables scaling
 
     * Cache amounts are rather high in mpv.conf, and for 4k content, `hwdec-extra-frames` is set to 64
     
 * mpv's logging messages are kept to a minimum - comment out `msg-level` in mpv.conf to see scripts'/mpv errors
 
-* Files in certain folders with certain matching characters in their filenames get sped to 1.25x automatically - see mpv.conf
+* Files in certain folders with certain matching characters in their filenames get sped up to 1.25x automatically - see mpv.conf
 
 * Downmixing of 7.1/5.1 channel audio to 2 channels is done with [this](https://github.com/mpv-player/mpv/issues/6343#issuecomment-517212825) filter line because I liked how the end result sounded the most. You might prefer the filters [here](https://github.com/mpv-player/mpv/issues/6563) or [here](https://github.com/DrPleaseRespect/DrPleaseRespect-MPV-Config/blob/main/mpv.conf#L90), or just simply setting `audio-channels=stereo`.
 
