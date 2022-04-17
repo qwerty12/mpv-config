@@ -14,8 +14,8 @@ mp.register_event('file-loaded', update_tracks)
 mp.observe_property('tracks-changed', 'native', update_tracks)
 
 mp.add_key_binding("s", 'subsel', function()
-    if sub_tracks <= 5 then
-        mp.command("script-binding cycle_sub_up")
+    if sub_tracks <= 10 then
+        mp.command("script-binding cycle_through_existing/cycle_sub_up")
     else
         mp.command("script-binding uosc/subtitles")
     end
