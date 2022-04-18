@@ -2355,8 +2355,8 @@ function hide_osc()
         if not(state.osc_visible == false) then
             state.anitype = "out"
             request_tick()
+            show_clock(false)
         end
-        show_clock(false)
     else
         osc_visible(false)
         show_clock(false)
@@ -2965,6 +2965,7 @@ function visibility_mode(mode, no_osd)
         always_on(true)
     elseif mode == "never" then
         enable_osc(false)
+        show_clock(false)
     else
         msg.warn("Ignoring unknown visibility mode '" .. mode .. "'")
         return
