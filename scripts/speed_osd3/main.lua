@@ -1,1 +1,0 @@
-require('speed_osd3')
