@@ -1,8 +1,14 @@
-Config for [mpv](https://mpv.io/). I use this on Windows with [zhongfly's nightly `mpv` builds](https://github.com/zhongfly/mpv-winbuild/) (a Scoop manifest can be found in [my bucket](https://github.com/qwerty12/scoop-alts)).
+Config for [mpv](https://mpv.io/). I use this on Windows with [my modified nightly `mpv` builds](https://github.com/qwerty12/mpv-winbuild/) (a Scoop manifest can be found in [my bucket](https://github.com/qwerty12/scoop-alts)).
 
 A modified [osc-potplayer-box-knob-or-bar-0.lua](https://github.com/422658476/MPV-EASY-Player/blob/master/mpv-easy-data/osc-style/osc-potplayer-box-knob-or-bar-0.lua) is used for the OSC, while [uosc](https://github.com/darsain/uosc) provides the top bar.
 
 ### Notes
+
+* **IMPORTANT**: Most scripts here are modified; some even have functionality removed. You might prefer to use the original versions.
+
+    * **One script of mine will try to run an AutoHotkey script as an Administrator.**
+
+    * Use this repo as a template, not as-is.
 
 * I do not watch anime.
 
@@ -27,8 +33,6 @@ A modified [osc-potplayer-box-knob-or-bar-0.lua](https://github.com/422658476/MP
 * The Cascadia Mono font should be present on your system. I think it comes with Windows 11 or the new Windows Terminal or both.
 
 * The forward subtitle cycling key, `s`, will bring up uosc's subtitle selection menu instead if 10 or more subtitle tracks are present
-
-* Most scripts included here contain modifications, including those that remove functionality. Almost all of the scripts in folders will load lazily or with a delay. You might prefer to use the original versions.
 
 ### Credits
 
