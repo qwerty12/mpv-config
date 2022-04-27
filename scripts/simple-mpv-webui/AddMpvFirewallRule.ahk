@@ -2,6 +2,7 @@
 #NoTrayIcon
 SetBatchLines -1
 ListLines Off
+Process, Priority,, A
 
 RunAsTask() {                         ;  By SKAN,  http://goo.gl/yG6A1F,  CD:19/Aug/2014 | MD:24/Apr/2020
 
@@ -71,9 +72,9 @@ getFinalPath(path)
 	static MAX_PATH := 260, GENERIC_READ := 0x80000000, FILE_SHARE_READ := 0x00000001, OPEN_EXISTING := 3, FILE_ATTRIBUTE_NORMAL := 128, INVALID_HANDLE_VALUE := -1
 	ret := ""
 
-	VarSetCapacity(out, MAX_PATH * 2)
 	hFile := DllCall("CreateFileW", "WStr", path, "UInt", GENERIC_READ, "UInt", FILE_SHARE_READ, "Ptr", 0, "UInt", OPEN_EXISTING, "UInt", FILE_ATTRIBUTE_NORMAL, "Ptr", 0, "Ptr")
 	if (hFile != INVALID_HANDLE_VALUE) {
+		VarSetCapacity(out, MAX_PATH * 2)
 		if (DllCall("GetFinalPathNameByHandleW", "Ptr", hFile, "WStr", out, "UInt", MAX_PATH, "UInt", 0, "UInt") < MAX_PATH)
 			ret := LTrim(out, "\?")
 		DllCall("CloseHandle", "Ptr", hFile)
@@ -94,7 +95,7 @@ getMpvPath()
 
 	mpvPath := getFinalPath(SCOOP_HOME . "\apps\mpv-git\current\mpv.exe")
 	if (mpvPath)
-		mpvPath := SubStr(mpvPath, 1, 1) . Format("{:L}", SubStr(mpvPath, 2))
+		mpvPath := Format("{:.1}{:L}", mpvPath, SubStr(mpvPath, 2))
 	else
 		ExitApp 1
 
