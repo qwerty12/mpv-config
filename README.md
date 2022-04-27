@@ -6,8 +6,6 @@ A modified [osc-potplayer-box-knob-or-bar-0.lua](https://github.com/422658476/MP
 
 * **IMPORTANT**: Most scripts here are modified; some even have functionality removed. You might prefer to use the original versions.
 
-    * **One script of mine will try to run an AutoHotkey script as an Administrator.**
-
     * Use this repo as a template, not as-is.
 
 * I do not watch anime.
