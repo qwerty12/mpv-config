@@ -3,6 +3,7 @@
 SetBatchLines -1
 ListLines Off
 Process, Priority,, A
+#SingleInstance ignore
 
 RunAsTask() {                         ;  By SKAN,  http://goo.gl/yG6A1F,  CD:19/Aug/2014 | MD:24/Apr/2020
 
@@ -35,7 +36,7 @@ RunAsTask() {                         ;  By SKAN,  http://goo.gl/yG6A1F,  CD:19/
 
   If ( not A_IsAdmin and not TaskExists and not RegExMatch(DllCall("GetCommandLine", "str"), " /restart(?!\S)") )  { 
 
-    Run *RunAs %CmdLine% /restart, %ScriptDir%, UseErrorLevel
+    Run *RunAs %CmdLine% /force /restart, %ScriptDir%, UseErrorLevel
     ExitApp
 
   }
@@ -54,9 +55,9 @@ RunAsTask() {                         ;  By SKAN,  http://goo.gl/yG6A1F,  CD:19/
       ettings><AllowStartOnDemand>true</AllowStartOnDemand><Enabled>true</Enabled><Hidden>false</Hidden><
       RunOnlyIfIdle>false</RunOnlyIfIdle><DisallowStartOnRemoteAppSession>false</DisallowStartOnRemoteApp
       Session><UseUnifiedSchedulingEngine>false</UseUnifiedSchedulingEngine><WakeToRun>false</WakeToRun><
-      ExecutionTimeLimit>PT0S</ExecutionTimeLimit><Priority>4</Priority></Settings><Actions Context=""Author""><Exec>
+      ExecutionTimeLimit>PT0S</ExecutionTimeLimit><Priority>2</Priority></Settings><Actions Context=""Author""><Exec>
       <Command>""" ( A_IsCompiled ? ScriptFullpath : A_AhkPath ) """</Command>
-      <Arguments>" ( !A_IsCompiled ? """" ScriptFullpath  """" : "" )   "</Arguments>
+      <Arguments>" "/force " ( !A_IsCompiled ? """" ScriptFullpath  """" : "" )   "</Arguments>
       <WorkingDirectory>" ScriptDir "</WorkingDirectory></Exec></Actions></Task>
     )"    
 
@@ -95,7 +96,7 @@ getMpvPath()
 
 	mpvPath := getFinalPath(SCOOP_HOME . "\apps\mpv-git\current\mpv.exe")
 	if (mpvPath)
-		mpvPath := Format("{:.1}{:L}", mpvPath, SubStr(mpvPath, 2))
+		mpvPath := Format("{:.1}{:L}", mpvPath, SubStr(mpvPath, 2)) ; the paths, but not the drive letter, are made lower-case by Windows when it adds a firewall rule itself
 	else
 		ExitApp 1
 
@@ -107,7 +108,7 @@ if (A_IsAdmin) {
 		FwPolicy2 := ComObjCreate("HNetCfg.FwPolicy2")
 		Rules := FwPolicy2.Rules
 ;		for rule in Rules
-;			if (rule.Name == "mpv") {
+;			if (rule.Name == "mpv")
 		Loop 4
 			Rules.Remove("mpv")
 
