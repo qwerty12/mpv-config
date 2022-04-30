@@ -168,17 +168,6 @@
       </div>
     </div>
 
-    <div onClick="send('add_chapter', '-1')" class="button unselectable left blue chapter" title="Previous chapter">
-      <div class="content icon-content">
-        <i class="fas fa-step-backward"></i>
-      </div>
-    </div>
-    <div onClick="send('add_chapter', '1')" class="button unselectable right blue chapter" title="Next chapter">
-      <div class="content icon-content">
-        <i class="fas fa-step-forward"></i>
-      </div>
-    </div>
-
     <div onClick="send('playlist_prev')" class="button unselectable left blue" title="Previous playlist (p)">
       <div class="content icon-content">
         <i class="fas fa-fast-backward"></i>
@@ -206,6 +195,28 @@
       </div>
     </div>
 
+    <div onClick="send('add', 'brightness', '-1')" class="button unselectable left yellow">
+      <div class="content text-content">
+        Brightness -
+      </div>
+    </div>
+    <div onClick="send('add', 'brightness', '1')" class="button unselectable right yellow">
+      <div class="content text-content">
+        Brightness +
+      </div>
+    </div>
+
+    <div onClick="send('fullscreen')" class="button unselectable left gray" title="Toggle fullscreen (f)">
+      <div id="fullscreenButton" class="content text-content">
+        Fullscreen
+      </div>
+    </div>
+    <div onClick="send('revert_seek')" class="button unselectable right gray">
+      <div class="content text-content">
+        Revert seek
+      </div>
+    </div>
+
     <div onClick="send('cycle_sub')" class="button unselectable left violet" title="Cycle subtitles (j)">
       <div id="nextSub" class="content text-content">
         Next sub
@@ -214,6 +225,17 @@
     <div onClick="send('cycle_audio')" class="button unselectable right violet">
       <div id="nextAudio" class="content text-content">
         Next audio
+      </div>
+    </div>
+
+    <div onClick="send('add_chapter', '-1')" class="button unselectable left blue chapter" title="Previous chapter">
+      <div class="content icon-content">
+        <i class="fas fa-step-backward"></i>
+      </div>
+    </div>
+    <div onClick="send('add_chapter', '1')" class="button unselectable right blue chapter" title="Next chapter">
+      <div class="content icon-content">
+        <i class="fas fa-step-forward"></i>
       </div>
     </div>
 
@@ -238,19 +260,6 @@
         Audio delay +
       </div>
     </div>
-
-    <div onClick="send('fullscreen')" class="button unselectable left gray" title="Toggle fullscreen (f)">
-      <div id="fullscreenButton" class="content text-content">
-        Fullscreen
-      </div>
-    </div>
-    <div onClick="send('revert_seek')" class="button unselectable right gray">
-      <div class="content text-content">
-        Revert seek
-      </div>
-    </div>
-
-    <audio id="audio" src="static/audio/silence.mp3" loop></audio>
 
   </body>
   <script src="webui.js"></script>
