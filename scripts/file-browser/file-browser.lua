@@ -264,6 +264,8 @@ local cache = setmetatable({}, { __index = __cache })
 ---------------------------------------Part of the addon API--------------------------------------------
 --------------------------------------------------------------------------------------------------------
 
+API.coroutine = {}
+
 --implements table.pack if on lua 5.1
 if not table.pack then
     table.unpack = unpack
@@ -276,16 +278,26 @@ end
 
 --prints an error if a coroutine returns an error
 --unlike the next function this one still returns the results of coroutine.resume()
-function coroutine.resume_catch(...)
+function API.coroutine.resume_catch(...)
     local returns = table.pack(coroutine.resume(...))
     if not returns[1] then msg.error(returns[2]) end
     return table.unpack(returns, 1, returns.n)
 end
 
 --resumes a coroutine and prints an error if it was not sucessful
-function coroutine.resume_err(...)
+function API.coroutine.resume_err(...)
     local success, err = coroutine.resume(...)
     if not success then msg.error(err) end
+end
+
+--creates a callback fuction to resume the current coroutine
+function API.coroutine.callback()
+    local co, main = coroutine.running()
+    assert(not main and co, "cannot create a coroutine callback for the main thread")
+
+    return function(...)
+        return API.coroutine.resume_err(co, ...)
+    end
 end
 
 --get the full path for the current file
@@ -423,16 +435,15 @@ end
 --copies a table without leaving any references to the original
 --uses a structured clone algorithm to maintain cyclic references
 local function copy_table_recursive(t, references)
-    if not t then return nil end
+    if type(t) ~= "table" then return t end
+    if references[t] then return references[t] end
+
     local copy = {}
     references[t] = copy
 
     for key, value in pairs(t) do
-        if type(value) == "table" then
-            if references[value] then copy[key] = references[value]
-            else copy[key] = copy_table_recursive(value, references) end
-        else
-            copy[key] = value end
+        key = copy_table_recursive(key, references)
+        copy[key] = copy_table_recursive(value, references)
     end
     return copy
 end
@@ -811,7 +822,7 @@ local function parse_directory(directory, parse_state)
     --if this coroutine is already is use by another parse operation then we create a new
     --one and hand execution over to that
     local new_co = coroutine.create(function()
-        coroutine.resume_err(co, run_parse(directory, parse_state))
+        API.coroutine.resume_err(co, run_parse(directory, parse_state))
     end)
 
     --queue the new coroutine on the mpv event queue
@@ -819,7 +830,7 @@ local function parse_directory(directory, parse_state)
         local success, err = coroutine.resume(new_co)
         if not success then
             msg.error(err)
-            coroutine.resume_err(co)
+            API.coroutine.resume_err(co)
         end
     end)
     return parse_states[co]:yield()
@@ -912,7 +923,7 @@ local function update(moving_adjacent)
     --the directory is always handled within a coroutine to allow addons to
     --pause execution for asynchronous operations
     state.co = coroutine.create(function() update_list(); update_ass() end)
-    coroutine.resume_err(state.co)
+    API.coroutine.resume_err(state.co)
 end
 
 --the base function for moving to a directory
@@ -1165,7 +1176,7 @@ end
 local function open_file(flag, autoload_dir)
     local co = coroutine.create(open_file_coroutine)
 
-    coroutine.resume_err(co, flag, autoload_dir)
+    API.coroutine.resume_err(co, flag, autoload_dir)
 end
 
 
@@ -1279,7 +1290,7 @@ local function custom_command(cmd, state, co)
             run_custom_command(cmd, {selection[i]}, state)
 
             if cmd.delay then
-                mp.add_timeout(cmd.delay, function() coroutine.resume_err(co) end)
+                mp.add_timeout(cmd.delay, function() API.coroutine.resume_err(co) end)
                 coroutine.yield()
             end
         end
@@ -1776,6 +1787,6 @@ mp.register_script_message('browse-directory', browse_directory)
 --allows other scripts to request directory contents from file-browser
 mp.register_script_message("get-directory-contents", function(directory, response_str)
     local co = coroutine.create(scan_directory_json)
-    coroutine.resume_err(co, directory, response_str)
+    API.coroutine.resume_err(co, directory, response_str)
 end)
 
