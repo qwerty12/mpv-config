@@ -27,7 +27,7 @@ function speed_change(name, value)
     end
 end
 
-local orig_opm = nil
+local orig_opm = mp.get_property("osd-playing-msg", "")
 function started()
     local speed = mp.get_property_number("speed")
     local dur = mp.get_property_number("duration")
@@ -39,18 +39,6 @@ function started()
             )
         )
     else
-        if orig_opm == nil then
-            orig_opm = ""
-            local file = io.open(mp.command_native({'expand-path', '~~/mpv.conf'}), "r")
-            if file ~= nil then
-                local content = file:read("*a")
-                file:close()
-                local opm = content:match("osd%-playing%-msg%s?=%s?(.-)\n")
-                if opm ~= nil then
-                    orig_opm = opm
-                end
-            end
-        end
         mp.set_property("osd-playing-msg", orig_opm)
     end
 end
