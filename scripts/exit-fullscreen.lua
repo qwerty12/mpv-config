@@ -3,8 +3,8 @@
 
 mp.observe_property("eof-reached", "bool", function(name, value)
     if value then
-        if mp.get_property_native("pause") then
-            mp.set_property_native("fullscreen", false)
+        if mp.get_property_number('playlist-pos-1') == mp.get_property_number('playlist-count') then
+            mp.set_property("fullscreen", "no")
         end
     end
 end)
