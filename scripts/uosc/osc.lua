@@ -1,4 +1,4 @@
---https://github.com/422658476/MPV-EASY-Player/blob/master/mpv-easy-data/osc-style/osc-potplayer-box-knob-or-bar-0.lua
+--https://github.com/422658476/MPV-EASY-Player/blob/master/mpv-easy-data/osc-style/osc-potplayer-box-knob-or-bar-0.lua @ 20cbb20cf337ca63fd214f1f25a90da5c4f68ee5
 --此lua脚本由软件No1修改并提供支持
 --This lua script is modified by www.rjno1.com
 --此lua脚本原始版本： github.com/mpv-player/mpv/blob/master/player/lua/osc.lua
