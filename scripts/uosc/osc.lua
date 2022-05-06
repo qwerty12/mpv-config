@@ -58,6 +58,7 @@ local user_opts = {
     chapters_osd = true,        -- whether to show chapters OSD on next/prev
     playlist_osd = true,        -- whether to show playlist OSD on next/prev
     chapter_fmt = "Chapter: %s", -- chapter print format for seekbar-hover. "no" to disable
+    showonpause = true,         -- whether to disable the hide timeout on pause
 }
 
 -- read options from config and command-line
@@ -150,6 +151,7 @@ local state = {
     border = true,
     maximized = false,
     osd = mp.create_osd_overlay("ass-events"),
+    lastvisibility = user_opts.visibility,  -- save last visibility on pause if showonpause
     chapter_list = {},                      -- sorted by time
 }
 
@@ -2373,6 +2375,15 @@ end
 
 function pause_state(name, enabled)
     state.paused = enabled
+    if user_opts.showonpause then
+        if enabled then
+            state.lastvisibility = user_opts.visibility
+            visibility_mode("always", true)
+            show_osc()
+        else
+            visibility_mode(state.lastvisibility, true)
+        end
+    end
     request_tick()
 end
 
