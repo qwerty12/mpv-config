@@ -343,7 +343,7 @@ local endpoints = {
   ["api/fullscreen"] = {
     POST = function(_)
       local curr = mp.get_property_bool("fullscreen")
-      if not curr then
+      if not curr and not mp.get_property_bool("focused") then
         pcall(focus_window)
       end
       local _, success, ret = pcall(mp.set_property_bool, "fullscreen", not curr)
