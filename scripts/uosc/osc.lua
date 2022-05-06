@@ -58,7 +58,8 @@ local user_opts = {
     chapters_osd = true,        -- whether to show chapters OSD on next/prev
     playlist_osd = true,        -- whether to show playlist OSD on next/prev
     chapter_fmt = "Chapter: %s", -- chapter print format for seekbar-hover. "no" to disable
-    showonpause = true,         -- whether to disable the hide timeout on pause
+    showonpause = true,          -- whether to disable the hide timeout on pause
+    movesub = true,              -- move subtitles when the OSC is visible. Incompatible with any modifications made to sub-margin-y
 }
 
 -- read options from config and command-line
@@ -151,8 +152,9 @@ local state = {
     border = true,
     maximized = false,
     osd = mp.create_osd_overlay("ass-events"),
-    lastvisibility = user_opts.visibility,  -- save last visibility on pause if showonpause
     chapter_list = {},                      -- sorted by time
+    lastvisibility = user_opts.visibility,  -- save last visibility on pause if showonpause
+    subpos = 100,                           -- last value of sub-pos set by the user
 }
 
 local window_control_box_width = 80
@@ -358,6 +360,11 @@ function ass_draw_rr_h_ccw(ass, x0, y0, x1, y1, r1, hexagon, r2)
     else
         ass:round_rect_ccw(x0, y0, x1, y1, r1, r2)
     end
+end
+
+function round(number, decimals)
+    local power = 10^(decimals or 1)
+    return math.floor(number * power + 0.5) / power
 end
 
 function write_watch_later()
@@ -656,6 +663,29 @@ function get_chapter(possec)
         if possec >= cl[n].time then
             return cl[n]
         end
+    end
+end
+
+-- All subpos-related code is from https://github.com/dexeonify/mpv-config/
+function observe_subpos(visible, pos)
+    if not visible then
+        mp.observe_property("sub-pos", "number", observe_subpos)
+    elseif visible == "sub-pos" then
+        state.subpos = pos
+    else
+        mp.unobserve_property(observe_subpos)
+    end
+end
+
+function update_subpos(is_visible)
+    -- source: https://github.com/Zren/mpv-osc-tethys/commit/5173241
+    local max_subpos = 94  -- as the starting point for decrementing
+    local osc_height = 65 * (state.fullscreen and user_opts.scalefullscreen or user_opts.scalewindowed) --math.max(150, user_opts.blur_intensity)
+    local new_subpos = max_subpos - (osc_height - 65) / 12.5
+
+    if (state.subpos >= new_subpos) then
+        local final_pos = is_visible and new_subpos or state.subpos
+        mp.set_property_number("sub-pos", round(final_pos, 0))
     end
 end
 
@@ -2370,6 +2400,10 @@ function osc_visible(visible)
         state.osc_visible = visible
         update_margins()
     end
+    if user_opts.movesub then
+        observe_subpos(visible)
+        update_subpos(visible)
+    end
     request_tick()
 end
 
@@ -2839,6 +2873,7 @@ mp.observe_property("chapter-list", "native", function(_, list)
     update_duration_watch()
     request_init()
 end)
+mp.observe_property("sub-pos", "number", observe_subpos)
 
 mp.register_script_message("osc-message", show_message)
 mp.register_script_message("osc-chapterlist", function(dur)
