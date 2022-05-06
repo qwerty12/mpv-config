@@ -11,14 +11,19 @@ local VERSION = "3.0.0"
 
 local ffi = require("ffi")
 ffi.cdef[[
-int __stdcall SetSuspendState(int bHibernate, int bForce, int bWakeupEventsDisabled);
+int __stdcall SetSuspendState(bool bHibernate, bool bForce, bool bWakeupEventsDisabled);
 void* __stdcall FindWindowExA(void *hWndParent, void *hWndChildAfter, const char *lpszClass, const char *lpszWindow);
 unsigned int __stdcall GetWindowThreadProcessId(void *hWnd, unsigned int *lpdwProcessId);
 bool __stdcall IsIconic(void *hWnd);
 bool __stdcall ShowWindow(void *hWnd, int nCmdShow);
 bool __stdcall SetForegroundWindow(void *hWnd);
-void __stdcall SwitchToThisWindow(void *hWnd, int fUnknown);
+void __stdcall SwitchToThisWindow(void *hWnd, bool fUnknown);
 void* __stdcall GetForegroundWindow();
+bool __stdcall AttachThreadInput(unsigned int idAttach, unsigned int idAttachTo, bool fAttach);
+bool __stdcall IsHungAppWindow(void *hwnd);
+unsigned int __stdcall GetCurrentThreadId();
+bool __stdcall BringWindowToTop(void *hWnd);
+void* __stdcall SetActiveWindow(void *hWnd);
 ]]
 
 function string.starts(String, Start)
@@ -50,16 +55,39 @@ local function get_mpv_hwnd()
   return hwnd
 end
 
-local function focus_window()
+local function focus_window(force)
   if mpv_hwnd == nil then
     mpv_hwnd = get_mpv_hwnd()
+    if mpv_hwnd == nil then return end
   end
-  if mpv_hwnd ~= nil and mpv_hwnd ~= ffi.C.GetForegroundWindow() then
-    if ffi.C.IsIconic(mpv_hwnd) then
-      ffi.C.ShowWindow(mpv_hwnd, 9) --SW_RESTORE
+  local hwnd_fg = ffi.C.GetForegroundWindow()
+  if hwnd_fg == mpv_hwnd then return end
+
+  local tid_mpv = 0
+  local tid_fg = 0
+  if force then
+    if not ffi.C.IsHungAppWindow(hwnd_fg) then
+      tid_mpv = ffi.C.GetCurrentThreadId()
+      tid_fg = ffi.C.GetWindowThreadProcessId(hwnd_fg, nil)
+      if not ffi.C.AttachThreadInput(tid_mpv, tid_fg, true) then
+        tid_fg = 0
+      end
     end
-    if not ffi.C.SetForegroundWindow(mpv_hwnd) then
-      ffi.C.SwitchToThisWindow(mpv_hwnd, 1)
+  end
+
+  if ffi.C.IsIconic(mpv_hwnd) then
+    ffi.C.ShowWindow(mpv_hwnd, 9) --SW_RESTORE
+  end
+  ffi.C.SetForegroundWindow(mpv_hwnd)
+
+  if force then
+    ffi.C.SetForegroundWindow(mpv_hwnd)
+    ffi.C.SetActiveWindow(mpv_hwnd)
+    -- TODO: Use `keybd_event` to send VK_MENU x2 and retry SetForegroundWindow: https://github.com/Lexikos/AutoHotkey_L/blob/master/source/window.cpp#L320
+    ffi.C.SwitchToThisWindow(mpv_hwnd, true)
+    ffi.C.BringWindowToTop(mpv_hwnd)
+    if tid_fg ~= 0 then
+      ffi.C.AttachThreadInput(tid_mpv, tid_fg, false)
     end
   end
 end
@@ -344,7 +372,10 @@ local endpoints = {
     POST = function(_)
       local curr = mp.get_property_bool("fullscreen")
       if not curr and not mp.get_property_bool("focused") then
-        pcall(focus_window)
+        pcall(focus_window, false)
+        if not mp.get_property_bool("focused") then
+          pcall(focus_window, true)
+        end
       end
       local _, success, ret = pcall(mp.set_property_bool, "fullscreen", not curr)
       return handle_post(success, ret)
@@ -722,7 +753,7 @@ local endpoints = {
       if powrprof == nil then
         powrprof = ffi.load("PowrProf")
       end
-      local success, ret = pcall(powrprof.SetSuspendState, 0, 1, 1)
+      local success, ret = pcall(powrprof.SetSuspendState, false, true, true)
       return handle_post(success, ret)
     end
   },
