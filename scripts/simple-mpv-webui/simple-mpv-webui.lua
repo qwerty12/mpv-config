@@ -20,7 +20,6 @@ bool __stdcall SetForegroundWindow(void *hWnd);
 void __stdcall SwitchToThisWindow(void *hWnd, int fUnknown);
 void* __stdcall GetForegroundWindow();
 ]]
-local powrprof = nil
 
 function string.starts(String, Start)
   return string.sub(String,1,string.len(Start))==Start
@@ -31,6 +30,7 @@ local function script_path()
   return debug.getinfo(1).source:match("@?(.*/)")
 end
 
+local powrprof = nil
 local mpv_hwnd = nil
 local function get_mpv_hwnd()
   local hwnd = nil
@@ -38,13 +38,13 @@ local function get_mpv_hwnd()
   local hwnd_pid = ffi.typeof("unsigned int[1]")()
 
   repeat
-      hwnd = ffi.C.FindWindowExA(nil, hwnd, "mpv", nil)
-      if hwnd ~= nil then
-          ffi.C.GetWindowThreadProcessId(hwnd, hwnd_pid)
-          if hwnd_pid[0] == our_pid then
-              break
-          end
+    hwnd = ffi.C.FindWindowExA(nil, hwnd, "mpv", nil)
+    if hwnd ~= nil then
+      ffi.C.GetWindowThreadProcessId(hwnd, hwnd_pid)
+      if hwnd_pid[0] == our_pid then
+        break
       end
+    end
   until hwnd == nil
 
   return hwnd
@@ -58,8 +58,9 @@ local function focus_window()
     if ffi.C.IsIconic(mpv_hwnd) then
       ffi.C.ShowWindow(mpv_hwnd, 9) --SW_RESTORE
     end
-    ffi.C.SetForegroundWindow(mpv_hwnd)
-    ffi.C.SwitchToThisWindow(mpv_hwnd, 1)
+    if not ffi.C.SetForegroundWindow(mpv_hwnd) then
+      ffi.C.SwitchToThisWindow(mpv_hwnd, 1)
+    end
   end
 end
 
@@ -462,6 +463,12 @@ local endpoints = {
 
   ["api/playlist_prev"] = {
     POST = function(_)
+      local position = tonumber(mp.get_property("time-pos") or 0)
+      if position > 1 then
+        pcall(mp.commandv, 'revert-seek', 'mark')
+        local _, success, ret = pcall(mp.commandv, 'osd-msg', "seek", -position)
+        return handle_post(success, ret)
+      end
       pcall(mp.commandv, 'write-watch-later-config')
       pcall(mp.command, 'script-message-to auto_save_state skip-delete-state')
       local _, success, ret = pcall(mp.commandv, 'osd-msg', "playlist-prev")
@@ -658,6 +665,21 @@ local endpoints = {
   },
 
   ["api/speed_set"] = {
+    POST = function(request)
+      local speed = request.params[1] or ""
+      if speed == '' then
+        speed = '1'
+      end
+      local valid, msg = validate_number_param(speed)
+      if not valid then
+        return response(400, "json", utils.format_json({message = msg}), {})
+      end
+      local _, success, ret = pcall(mp.commandv, 'osd-msg', 'set', 'speed', speed)
+      return handle_post(success, ret)
+    end
+  },
+
+  ["api/speed_toggle"] = {
     POST = function(request)
       local _, success, ret = pcall(mp.commandv, 'script-binding', 'speedtoggle/speed_toggle')
       return handle_post(success, ret)
