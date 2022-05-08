@@ -1517,6 +1517,7 @@ end
     lo.geometry = {x = rjno1X + 10 * 110 -30, y = rjno1Y + 10 * 5 + 13 -1 , an = 1, w = 26, h =30 }
     lo.style = osc_styles.rjno125Buttons
 
+    osc_param.video_margins.b = (osc_geo.h + 15) / osc_param.playresy
 end
 
 -- slim box layout
