@@ -57,6 +57,11 @@ function parse_subliminal(txt)
 end
 
 function main()
+    if mp.get_property_bool("demuxer-via-network") then
+        mp.osd_message("subit: file not local, skipping search")
+        return
+    end
+
     local path = mp.get_property("path")
 
     mp.osd_message("looking for subs...", 100000)
