@@ -4,5 +4,4 @@ local function on_file_loaded(event)
         require('reload')
     end
 end
-
 mp.register_event("start-file", on_file_loaded)
