@@ -40,7 +40,7 @@ local mpv_hwnd = nil
 local function get_mpv_hwnd()
   local hwnd = nil
   local our_pid = mp.get_property_number("pid")
-  local hwnd_pid = ffi.typeof("unsigned int[1]")()
+  local hwnd_pid = ffi.new("unsigned int[1]")
 
   repeat
     hwnd = ffi.C.FindWindowExA(nil, hwnd, "mpv", nil)
