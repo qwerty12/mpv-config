@@ -109,10 +109,10 @@ end
 function client_message(event)
     if event.args[1] == "delete_file" and #event.args == 3 and #key_bindings == 0 then
         confirm_key = event.args[2]
-        mp.add_timeout(10, cleanup)
+        mp.add_timeout(5, cleanup)
         add_key_bindings()
         file_to_delete = mp.get_property("path")
-        mp.commandv("show-text", event.args[3], "10000")
+        mp.commandv("show-text", event.args[3], "5000")
     end
 end
 
