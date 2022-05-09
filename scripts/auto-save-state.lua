@@ -5,10 +5,9 @@ local options = require 'mp.options'
 local o = { save_interval = 60 }
 options.read_options(o)
 
-local msg_level = mp.get_property("msg-level", "cplayer=status")
-
 local function save()
 	if mp.get_property_bool("save-position-on-quit") then
+		local msg_level = mp.get_property("msg-level", "")
 		mp.set_property("msg-level", "cplayer=warn")
 		mp.command("write-watch-later-config")
 		mp.set_property("msg-level", msg_level)
