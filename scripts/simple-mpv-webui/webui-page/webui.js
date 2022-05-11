@@ -6,21 +6,16 @@ let DEBUG = false;
     settings = {"disableNotifications": true}
 
 window.onload = function() {
-  if (document.cookie.split('; ').find(row => row.startsWith('disableNotifications'))) {
-    settings.disableNotifications = true;
-    document.getElementById("disableNotifications").checked = true;
-  }
+  settings.disableNotifications = true;
+  document.getElementById("disableNotifications").checked = true;
 }
 
 function useNotifications() {
-  return 'mediaSession' in navigator && !settings.disableNotifications;
+  return false;
 }
 
 function send(command, ...args) {
   DEBUG && console.log(`Sending command: ${command} params: ${args}`);
-  if (useNotifications()) {
-    audioLoad();
-  }
   const path = ['api', command, ...args].join('/');
 
   const request = new XMLHttpRequest();
