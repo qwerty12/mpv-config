@@ -187,37 +187,30 @@ end
 
 local function build_status_response()
   local values = {
-    ["audio-delay"] = mp.get_property_osd("audio-delay") or '',
-    ["audio-devices"] = get_audio_devices(),
-    chapter = mp.get_property_native("chapter") or 0,
-    ["chapter-list"] = mp.get_property_native("chapter-list") or '',
-    chapters = mp.get_property_native("chapters") or '',
-    duration = mp.get_property_native("duration") or '',
-    ["end"] = mp.get_property_native("end") or '',
-    filename = mp.get_property('filename') or '',
+    ["audio-delay"] = mp.get_property_osd("audio-delay", ''),
+    ["audio-devices"] = {},
+    chapter = mp.get_property_native("chapter", 0),
+    ["chapter-list"] = mp.get_property_native("chapter-list", ''),
+    chapters = mp.get_property_native("chapters", ''),
+    duration = mp.get_property_native("duration", ''),
+    ["end"] = mp.get_property_native("end", ''),
+    filename = mp.get_property('filename', ''),
     fullscreen = mp.get_property_native("fullscreen"),
     ["loop-file"] = mp.get_property_native("loop-file"),
     ["loop-playlist"] = mp.get_property_native("loop-playlist"),
-    metadata = mp.get_property_native("metadata") or '',
+    metadata = mp.get_property_native("metadata", ''),
     pause = mp.get_property_native("pause"),
-    playlist = mp.get_property_native("playlist") or '',
-    position = mp.get_property_native("time-pos") or '',
-    remaining = mp.get_property_native("playtime-remaining") or '',
-    speed = mp.get_property_native('speed') or '',
-    start = mp.get_property_native('start') or '',
-    ["sub-delay"] = mp.get_property_osd("sub-delay") or '',
-    ["track-list"] = mp.get_property_native("track-list") or '',
-    volume = mp.get_property_native("volume") or '',
-    ["volume-max"] = mp.get_property_native("volume-max") or '',
+    playlist = mp.get_property_native("playlist", ''),
+    position = mp.get_property_native("time-pos", ''),
+    remaining = mp.get_property_native("playtime-remaining", ''),
+    speed = mp.get_property_native('speed', ''),
+    start = mp.get_property_native('start', ''),
+    ["sub-delay"] = mp.get_property_osd("sub-delay", ''),
+    ["track-list"] = mp.get_property_native("track-list", ''),
+    volume = mp.get_property_native("volume", ''),
+    ["volume-max"] = mp.get_property_native("volume-max", ''),
     ["webui-version"] = VERSION,
   }
-
-  if mp.get_property_bool("demuxer-via-network") then
-    local media_title = mp.get_property("media-title")
-    if media_title then
-      values.filename = media_title
-    end
-  end
 
   for _, value in pairs({"fullscreen", "loop-file", "loop-playlist", "pause"}) do
     if values[value] == nil then
@@ -234,17 +227,25 @@ local function build_status_response()
   -- We need to check if the value is available.
   -- If the file just started playing, mp-functions return nil for a short time.
 
-  fail = false
+  local fail = false
   for k, v in pairs(values) do
     if v == '' then
       mp.msg.log("WARN", 'Could not fetch "'.. k .. '" from mpv.')
       fail = true
+      break
     end
   end
 
   if fail then
       mp.msg.log("WARN", 'This is normal during startup.')
       return false
+  end
+
+  if mp.get_property_bool("demuxer-via-network") then
+    local media_title = mp.get_property("media-title")
+    if media_title then
+      values.filename = media_title
+    end
   end
 
   local result = utils.format_json(values)
