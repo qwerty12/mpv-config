@@ -1950,16 +1950,13 @@ function osc_init()
     end
 
     ne.eventresponder["mbtn_left_up"] = function ()
-        local title = mp.get_property_osd("media-title")
-        if (have_pl) then
-            title = string.format("[%d/%d] %s", countone(pl_pos - 1),
-                                  pl_count, title)
+        local title = mp.get_property("title")
+        if title then
+            title = mp.command_native({"expand-text", title})
+            title = title:gsub("\\n", " "):gsub("\\$", ""):gsub("{","\\{")
+            show_message(title)
         end
-        show_message(title)
     end
-
-    ne.eventresponder["mbtn_right_up"] =
-        function () show_message(mp.get_property_osd("filename")) end
 
     -- playlist buttons
 
