@@ -1,5 +1,10 @@
 [
     {
+        "key": "ENTER",
+        "command": ["script-binding", "file_browser/dynamic/down_dir"],
+        "filter": "dir"
+    },
+    {
         "key": "Ctrl+ENTER",
         "command": ["run", "mpv", "%F"],
         "multiselect": true,
