@@ -2,15 +2,20 @@
 -- Runs write-watch-later-config periodically
 
 local options = require 'mp.options'
-local o = { save_interval = 60 }
+local o = { save_interval = 60, verbose = false }
 options.read_options(o)
 
 local function save()
 	if mp.get_property_bool("save-position-on-quit") then
-		local msg_level = mp.get_property("msg-level", "")
-		mp.set_property("msg-level", "cplayer=warn")
+		local msg_level
+		if not o.verbose then
+			msg_level = mp.get_property("msg-level", "")
+			mp.set_property("msg-level", "cplayer=warn")
+		end
 		mp.command("write-watch-later-config")
-		mp.set_property("msg-level", msg_level)
+		if not o.verbose then
+			mp.set_property("msg-level", msg_level)
+		end
 	end
 end
 
@@ -33,6 +38,9 @@ local function delete_watch_later(event)
 		if not can_delete then
 			return
 		elseif eof then
+			if o.verbose then
+				print("Deleting state (eof-reached)")
+			end
 			mp.commandv("delete-watch-later-config", path)
 			mp.set_property("save-position-on-quit", "no")
 		else
@@ -47,6 +55,9 @@ local function delete_watch_later(event)
 		if not can_delete then
 			can_delete = true
 		elseif event["reason"] == "eof" or event["reason"] == "stop" then
+			if o.verbose then
+				print("Deleting state (end-file "..event["reason"]..")")
+			end
 			mp.commandv("delete-watch-later-config", path)
 		end
 	end
