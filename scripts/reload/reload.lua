@@ -72,12 +72,16 @@ local settings = {
   demuxer_cache_timer_timeout = 20,
   reload_eof_enabled = false,
   reload_key_binding = "Ctrl+r",
+  reload_on_http_errors = "",
 }
 
 -- global state stores properties between reloads
 local property_path = nil
 local property_time_pos = 0
 local property_keep_open = nil
+
+local http_error_block_reconnection = false
+local http_error_count = 0
 
 -- FSM managing the demuxer cache.
 --
@@ -377,6 +381,9 @@ function on_file_loaded(event)
   -- - Run the `playlist-play-index current` command.
   mp.commandv("keypress", 'SPACE')
   mp.commandv("keypress", 'SPACE')
+
+  http_error_block_reconnection = false
+  http_error_count = 0
 end
 
 -- Round positive numbers.
@@ -417,6 +424,34 @@ if settings.reload_eof_enabled then
   )
 
   mp.observe_property("eof-reached", "bool", reload_eof)
+end
+
+if settings.reload_on_http_errors ~= "" then
+  local http_err_codes = {}
+  for w in settings.reload_on_http_errors:gsub("x", "%%d"):gmatch("([^,]+)") do http_err_codes[#http_err_codes + 1] = w end
+
+  mp.enable_messages("warn")
+  mp.register_event("log-message", function(e)
+    if http_error_block_reconnection then return end
+    if e.prefix ~= "ffmpeg" then return end
+    if e.level ~= "warn" then return end
+  
+    local err_code = e.text:match("^https: HTTP error (%d%d%d)")
+    if err_code == nil then return end
+
+    for _, i in ipairs(http_err_codes) do
+      if err_code:match(i) ~= nil then
+        http_error_count = http_error_count + 1
+        if http_error_count % 2 == 0 then
+          http_error_block_reconnection = true
+          mp.set_property("force-seekable", "yes")
+          mp.commandv("no-osd", "seek", "-1")
+          reload_resume()
+          return
+        end
+      end
+    end
+  end)
 end
 
 mp.register_event("file-loaded", on_file_loaded)
