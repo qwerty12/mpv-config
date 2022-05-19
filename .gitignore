@@ -4,3 +4,4 @@
 /script-opts/.webui_htpasswd
 /script-opts/webui.conf
 /scripts/search-page/screenshots/
+*libfdk-aac*.*dll*
