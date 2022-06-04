@@ -4,4 +4,5 @@
 /script-opts/.webui_htpasswd
 /script-opts/webui.conf
 /scripts/search-page/screenshots/
+/scripts/trakt-mpv/config.json
 *libfdk-aac*.*dll*
