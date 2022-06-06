@@ -13,6 +13,15 @@ end
 mp.add_key_binding("z", "speed_toggle", function() speed_toggle(mp.get_property("speed")) end)
 
 ---
+local function has_sub()
+	local all_tracks = mp.get_property_native('track-list', {})
+	for i = 1, #all_tracks do
+		if all_tracks[i].type == 'sub' then
+			return true
+		end
+	end
+	return false
+end
 
 local function is_likely_show(path)
 	return (path:find("\\Downloads\\TV\\", 1, true) ~= nil) or 
@@ -43,7 +52,7 @@ local function speed_up_shows()
 		return
 	end
 
-	if not is_resuming and speed_is_1 and is_likely_show(mp.get_property("path")) then
+	if not is_resuming and speed_is_1 and has_sub() and is_likely_show(mp.get_property("path")) then
 		save_speed = "1.00"
 		mp.set_property("speed", tonumber(last_observed_speed) ~= 1 and last_observed_speed or "1.25")
 	end
