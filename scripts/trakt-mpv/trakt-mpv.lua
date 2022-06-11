@@ -68,7 +68,7 @@ end
 local function checkin(filename)
     evoque_python({"--query", filename}, false, function(success, result, error)
         if result.status == 0 then
-            send_message(result.stdout .. " marked as watched", "00FF00", 2)
+            send_message(result.stdout, "00FF00", 2)
         elseif result.status == 14 then
             send_message("Couldn't find the show in trakt", "0000FF", 2)
         else

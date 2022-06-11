@@ -13,6 +13,8 @@ from time import sleep
 import requests
 from datetime import date, datetime, timezone
 
+dont_add_if_already_watched = True
+
 now = datetime.now(timezone.utc).isoformat() + "Z"
 
 """
@@ -156,8 +158,6 @@ def __query_search_ep(name, season, ep, configs):
     show_slug = res.json()[0]['show']['ids']['slug']
     # show_trakt_id = res.json()[0]['show']['ids']['trakt']
 
-    print(show_title + ' S' + season + 'E' + ep, end='')
-
     # Get the episode
     res = requests.get(
         'https://api.trakt.tv/shows/' + show_slug + '/seasons/' + season + '/episodes/' + ep,
@@ -167,14 +167,31 @@ def __query_search_ep(name, season, ep, configs):
     if res.status_code != 200:
         sys.exit(-1)
 
+    ids = res.json()["ids"]
+
+    if dont_add_if_already_watched:
+        watched_history = requests.get('https://api.trakt.tv/sync/history/episodes/' + str(ids["trakt"]), headers={
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + configs['access_token'],
+            'trakt-api-version': '2',
+            'trakt-api-key': configs['client_id']
+        })
+
+        if watched_history.status_code != 200:
+            sys.exit(-1)
+
+        if watched_history.json():
+            print(f"{show_title} S{season}E{ep} already marked as watched, won't add duplicate", end='')
+            sys.exit(0)
+
     checkin(configs, {
         'episodes': [
             {
                 "watched_at": now,
-                "ids": res.json()["ids"]
+                "ids": ids
             }
         ]
-    })
+    }, f"{show_title} S{season}E{ep} marked as watched")
 
 
 def __query_movie(movie, year, configs):
@@ -203,7 +220,20 @@ def __query_movie(movie, year, configs):
                 show_slug = obj['movie']['ids']['slug']
                 show_trakt_id = obj['movie']['ids']['trakt']
 
-    print(show_title, end='')
+    if dont_add_if_already_watched:
+        watched_history = requests.get('https://api.trakt.tv/sync/history/movies/' + str(show_trakt_id), headers={
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + configs['access_token'],
+            'trakt-api-version': '2',
+            'trakt-api-key': configs['client_id']
+        })
+
+        if watched_history.status_code != 200:
+            sys.exit(-1)
+
+        if watched_history.json():
+            print(f"{show_title} already marked as watched, won't add duplicate", end='')
+            sys.exit(0)
 
     checkin(configs, {
         'movies': [
@@ -212,7 +242,7 @@ def __query_movie(movie, year, configs):
                 "ids": {'trakt': show_trakt_id}
             }
         ]
-    })
+    }, f"{show_title} marked as watched")
 
 # def __query_whatever(name, configs):
 #     """ Get something purely by the name """
@@ -241,7 +271,7 @@ def __query_movie(movie, year, configs):
 #     })
 
 
-def checkin(configs, body):
+def checkin(configs, body, msg_on_success=None):
     res = requests.post(
         'https://api.trakt.tv/sync/history',
         headers={
@@ -255,6 +285,9 @@ def checkin(configs, body):
 
     if res.status_code != 201:
         sys.exit(-1)
+
+    if msg_on_success is not None:
+        print(msg_on_success, end='')
     sys.exit(0)
 
 
