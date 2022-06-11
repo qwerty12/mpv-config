@@ -15,7 +15,6 @@ local function update_tracks()
         end
     end
 end
-mp.register_event('start-file', update_tracks)
 mp.register_event('file-loaded', update_tracks)
 
 mp.add_key_binding("s", 'subsel', function() mp.command(cycle_sub and "cycle sub" or "script-binding uosc/subtitles") end)
