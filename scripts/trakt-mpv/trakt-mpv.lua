@@ -5,6 +5,7 @@ local utils = require 'mp.utils'
 -- GLOBAL VARS:
 local key = "t"
 local py_location = utils.join_path(mp.get_script_directory(), "trakt-mpv.py")
+local hello_ran = false
 
 -- HELPER FUNCTIONS:
 -- Joins two tables
@@ -80,24 +81,36 @@ end
 
 local function handlemessage()
     local filename = mp.get_property('filename')
-    evoque_python({"--hello"}, true, function(success, result, error)
-        if not success then return end
-        if result and result.killed_by_us then return end
+    if hello_ran then
+        -- if we already had a successful hello invocation in one mpv session, we don't need to keep running it
+        -- this assumption might fail if you leave mpv running for days at a time
+        checkin(filename)
+    else
+        evoque_python({"--hello"}, false, function(success, result, error)
+            if not success then return end
+            if result and result.killed_by_us then return end
 
-        -- Check status and act accordingly
-        if result.status == 10 then
-            -- Plugin is yet to be configured
-            send_message("Please add your client_id and client_secret to config.json!", "0000FF", 4)
-            return
-        elseif result.status == 11 then
-            -- Plugin has to authenticate
-            send_message("Press {\\i1}" .. key .. "{\\i0} to authenticate with Trakt.tv", "FF8800", 4)
-            mp.add_forced_key_binding(key, "auth-trakt", activation)
-        elseif result.status == 0 then
-            -- Plugin is setup, start the checkin
-            checkin(filename)
-        end
-    end)
+            if result.status == 0 then
+                hello_ran = true
+                -- Plugin is setup, start the checkin
+                checkin(filename)
+                return
+            end
+
+            -- skip showing error messages if the file has changed
+            if filename ~= mp.get_property('filename') then return end
+
+            -- Check status and act accordingly
+            if result.status == 10 then
+                -- Plugin is yet to be configured
+                send_message("Please add your client_id and client_secret to config.json!", "0000FF", 4)
+            elseif result.status == 11 then
+                -- Plugin has to authenticate
+                send_message("Press {\\i1}" .. key .. "{\\i0} to authenticate with Trakt.tv", "FF8800", 4)
+                mp.add_forced_key_binding(key, "auth-trakt", activation)
+            end
+        end)
+    end
 end
 
 mp.register_script_message("init_trakt_and_set_watched", handlemessage)
