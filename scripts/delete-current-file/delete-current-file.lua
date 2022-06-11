@@ -43,7 +43,6 @@ function handle_confirm_key()
 
         if is_windows then
             local ps_code = [[& {
-                Start-Sleep -Seconds 2
                 Add-Type -AssemblyName Microsoft.VisualBasic
                 [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteFile('file_to_delete', 'OnlyErrorDialogs', 'SendToRecycleBin')
             }]]
