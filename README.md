@@ -34,6 +34,8 @@ A modified [osc-potplayer-box-knob-or-bar-0.lua](https://github.com/422658476/MP
 
 * po5's chapterskip script is present and is configured to skip certain named chapters at the beginning of videos if present
 
+* You should have `cacert` globally installed with [Scoop](https://scoop.sh) or comment out `tls-ca-file` and `tls-verify` in mpv.conf
+
 ### Credits
 
 For the scripts, it should be obvious where they're from, so I'll avoid listing them again. Configurations were copied from the following places:
