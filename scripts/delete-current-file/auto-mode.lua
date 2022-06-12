@@ -1,40 +1,60 @@
 
------ This script allows to automatically switch between video,
------ audio and image mode. All configuration is done in code.
+--[[
+    This script changes options depending on what type of
+    file is played. It uses the file extension to detect
+    if the current file is a video, audio or image file.
 
------ config
+    The changes happen not on every file load, but only
+    when a mode change is detected.
 
--- executes when image mode is activated
-function on_image_mode_activate()
-    mp.command("script-message osc-visibility never no_osd")
-    mp.command("no-osd set osd-playing-msg ''")
-    mp.command("set background '#1A2226'")
+    On mode change 3 things can be done:
+
+    1. Change options
+    2. Change key bindings
+    3. Send messages
+
+    The configuration is done in code.
+]]--
+
+
+function on_video_mode_activate()
+    mp.set_property("osd-playing-msg", "${media-title}") -- in video mode use media-title for osd-playing-msg
 end
 
--- executes when image mode is deactivated,
--- use it to undo changes made by on_image_mode_activate
-function on_image_mode_deactivate()
-    mp.command("script-message osc-visibility auto no_osd")
-    mp.command("no-osd set osd-playing-msg '${media-title}'")
-    mp.command("set background '#000000'")
-end
-
--- executes when audio mode is activated
 function on_audio_mode_activate()
-    mp.command("no-osd set osd-playing-msg '${filtered-metadata}'")
+    mp.set_property("osd-playing-msg", "${filtered-metadata}") -- show MP3 tags in audio mode. In mpv.conf define: display-tags = Artist,Title,Album,Date,Genre,Rating,Comment,Description
 end
 
--- executes when audio mode is deactivated
--- use it to undo changes made by on_audio_mode_activate
+function on_image_mode_activate()
+    mp.set_property("osd-playing-msg", "")                    -- disable osd-playing-msg for images
+    mp.set_property("background", "#1A2226")                  -- use dark grey background for images
+    mp.command("script-message osc-visibility never no_osd")  -- disable osc for images
+end
+
+function on_video_mode_deactivate()
+end
+
 function on_audio_mode_deactivate()
-    mp.command("no-osd set osd-playing-msg '${media-title}'")
 end
 
--- bindings active in audio mode
+function on_image_mode_deactivate()
+    mp.set_property("background", "#000000")                 -- use black background for audio and video
+    mp.command("script-message osc-visibility auto no_osd")  -- enable osc for audio and video
+end
+
+function on_type_change(old_ext, new_ext)
+    if new_ext == ".gif" then
+        mp.set_property("loop-file", "inf")   -- loop GIF files
+    end
+
+    if old_ext == ".gif" then
+        mp.set_property("loop-file", "no")    -- use loop-file=no for anything except GIF
+    end
+end
+
 audio_mode_bindings = {
 }
 
--- bindings active in image mode
 image_mode_bindings = {
     { "UP",     function () mp.command("no-osd add video-pan-y -0.02") end, { repeatable = true } },
     { "DOWN",   function () mp.command("no-osd add video-pan-y  0.02") end, { repeatable = true } },
@@ -44,7 +64,6 @@ image_mode_bindings = {
     { "BS",     function () mp.command("no-osd set video-pan-y 0; no-osd set video-zoom 0") end   },
 }
 
--- file extensions used to determine which mode is active
 image_file_extensions = { ".jpg", ".png", ".bmp", ".gif", ".webp" }
 audio_file_extensions = { ".mp3", ".ogg", ".opus", ".flac", ".m4a", ".mka", ".ac3", ".dts", ".dtshd", ".dtshr", ".dtsma", ".eac3", ".mp2", ".mpa", ".thd", ".w64", ".wav", ".aac" }
 
@@ -78,7 +97,7 @@ end
 
 ----- mpv
 
--- msg = require 'mp.msg' --   msg.warn()   msg.error()
+msg = require 'mp.msg' --   msg.warn()   msg.error()
 -- mp.osd_message("hello")
 
 ----- mpv key bindings
@@ -107,26 +126,46 @@ end
 
 ----- image-mode
 
-active_mode = nil
+active_mode = "video"
+last_type = nil
 
-function enable_image_mode()
-    if active_mode == "image" then return end
-    active_mode = "image"
+function enable_video_mode()
+    if active_mode == "video" then return end
+    -- msg.warn("enable_video_mode")
+    active_mode = "video"
     remove_bindings()
-    add_bindings(image_mode_bindings)
-    on_image_mode_activate()
+    on_video_mode_activate()
 end
 
 function enable_audio_mode()
     if active_mode == "audio" then return end
+    -- msg.warn("enable_audio_mode")
     active_mode = "audio"
     remove_bindings()
     add_bindings(audio_mode_bindings)
     on_audio_mode_activate()
 end
 
+function enable_image_mode()
+    if active_mode == "image" then return end
+    -- msg.warn("enable_image_mode")
+    active_mode = "image"
+    remove_bindings()
+    add_bindings(image_mode_bindings)
+    on_image_mode_activate()
+end
+
+function disable_video_mode()
+    if active_mode ~= "video" then return end
+    -- msg.warn("disable_video_mode")
+    active_mode = nil
+    remove_bindings()
+    on_video_mode_deactivate()
+end
+
 function disable_image_mode()
     if active_mode ~= "image" then return end
+    -- msg.warn("disable_image_mode")
     active_mode = nil
     remove_bindings()
     on_image_mode_deactivate()
@@ -134,24 +173,33 @@ end
 
 function disable_audio_mode()
     if active_mode ~= "audio" then return end
+    -- msg.warn("disable_audio_mode")
     active_mode = nil
     remove_bindings()
     on_audio_mode_deactivate()
 end
 
-function file_loaded(event)
+function update(event)
     local ext = get_ext(mp.get_property("path"))
 
     if list_contains(image_file_extensions, ext) then
+        disable_video_mode()
         disable_audio_mode()
         enable_image_mode()
     elseif list_contains(audio_file_extensions, ext) then
         disable_image_mode()
+        disable_video_mode()
         enable_audio_mode()
     else
         disable_audio_mode()
         disable_image_mode()
+        enable_video_mode()
+    end
+
+    if last_type ~= ext then
+        on_type_change(last_type, ext)
+        last_type = ext
     end
 end
 
-mp.register_event("file-loaded", file_loaded)
+mp.register_event("start-file", update)
