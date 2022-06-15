@@ -33,7 +33,7 @@ local last_observed_speed = "1.00"
 local is_show_playlist = -1
 local function speed_up_shows()
 	local speed_is_1 = tonumber(mp.get_property("speed")) == 1
-	local is_resuming = not mp.get_property_bool("terminal") and mp.get_property("start") ~= "none"
+	local is_resuming = not mp.get_property_bool("terminal") and mp.get_property("start", "none") ~= "none"
 
 	if is_show_playlist == -1 then
 		is_show_playlist = is_likely_show(mp.get_property("playlist/0/filename"))
