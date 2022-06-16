@@ -107,6 +107,14 @@ def auth(flags, configs):
 def query(flags, configs):
     """ Searches Trakt.tv for the content that it's being watched """
     media = flags[2]
+    session = requests.Session()
+    session.headers.update({
+        'Accept-Encoding': 'gzip',
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + configs['access_token'],
+        'trakt-api-version': '2',
+        'trakt-api-key': configs['client_id']
+    })
 
     # Check if it is an episode (Show name followed by the season an episode)
     infos = re.search(r'(.+)S([0-9]+).*E([0-9]+).*', media, re.IGNORECASE)
@@ -115,36 +123,35 @@ def query(flags, configs):
         name = infos.group(1)
         season_id = infos.group(2)
         ep_id = infos.group(3)
-        __query_search_ep(name, season_id, ep_id, configs)
+        __query_search_ep(name, season_id, ep_id, session)
 
     # It's not an episode, then it must be a movie (Movie name followed by the year)
     infos = re.search(r'(.+)([1-9][0-9]{3}).*', media, re.IGNORECASE)
 
     if infos is not None and len(infos.groups()) == 2:
         movie_year = infos.group(2)
-        __query_movie(infos.group(1), movie_year, configs)
+        __query_movie(infos.group(1), movie_year, session)
 
     # Neither of the patterns matched, try using guessit
     import guessit
     guess = guessit.guessit(media)
     if guess['type'] == "episode":
-        __query_search_ep(guess['title'], str(guess['season']), str(guess['episode']), configs)
+        __query_search_ep(guess['title'], str(guess['season']), str(guess['episode']), session)
     elif guess['type'] == "movie":
         year = guess.get('year')
         if year is not None: year = str(year)
-        __query_movie(guess['title'], year, configs)
+        __query_movie(guess['title'], year, session)
 
     # Neither of the patterns matched, try using the whole name (Name followed by the file extension)
     # infos = re.search(r'(.+)\.[0-9A-Za-z]{3}', media, re.IGNORECASE)
     # __query_whatever(infos.group(1), configs)
 
 
-def __query_search_ep(name, season, ep, configs):
+def __query_search_ep(name, season, ep, session):
     """ Get the episode """
-    res = requests.get(
+    res = session.get(
         'https://api.trakt.tv/search/show',
-        params={'query': clean_name(name)},
-        headers={'trakt-api-key': configs['client_id'], 'trakt-api-version': '2'}
+        params={'query': clean_name(name)}
     )
 
     if res.status_code != 200:
@@ -159,9 +166,8 @@ def __query_search_ep(name, season, ep, configs):
     # show_trakt_id = res.json()[0]['show']['ids']['trakt']
 
     # Get the episode
-    res = requests.get(
-        'https://api.trakt.tv/shows/' + show_slug + '/seasons/' + season + '/episodes/' + ep,
-        headers={'trakt-api-key': configs['client_id'], 'trakt-api-version': '2'}
+    res = session.get(
+        'https://api.trakt.tv/shows/' + show_slug + '/seasons/' + season + '/episodes/' + ep
     )
 
     if res.status_code != 200:
@@ -170,12 +176,7 @@ def __query_search_ep(name, season, ep, configs):
     ids = res.json()["ids"]
 
     if dont_add_if_already_watched:
-        watched_history = requests.get('https://api.trakt.tv/sync/history/episodes/' + str(ids["trakt"]), headers={
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer ' + configs['access_token'],
-            'trakt-api-version': '2',
-            'trakt-api-key': configs['client_id']
-        })
+        watched_history = session.get('https://api.trakt.tv/sync/history/episodes/' + str(ids["trakt"]))
 
         if watched_history.status_code != 200:
             sys.exit(-1)
@@ -184,7 +185,7 @@ def __query_search_ep(name, season, ep, configs):
             print(f"{show_title} S{season}E{ep} already marked as watched, won't add duplicate", end='')
             sys.exit(0)
 
-    checkin(configs, {
+    checkin(session, {
         'episodes': [
             {
                 "watched_at": now,
@@ -194,19 +195,18 @@ def __query_search_ep(name, season, ep, configs):
     }, f"{show_title} S{season}E{ep} marked as watched")
 
 
-def __query_movie(movie, year, configs):
+def __query_movie(movie, year, session):
     """ Get the movie """
-    res = requests.get(
+    res = session.get(
         'https://api.trakt.tv/search/movie',
-        params={'query': clean_name(movie)},
-        headers={'trakt-api-key': configs['client_id'], 'trakt-api-version': '2'}
+        params={'query': clean_name(movie)}
     )
 
     if res.status_code != 200:
         sys.exit(-1)
 
     show_title = res.json()[0]['movie']['title']
-    show_slug = res.json()[0]['movie']['ids']['slug']
+    # show_slug = res.json()[0]['movie']['ids']['slug']
     show_trakt_id = res.json()[0]['movie']['ids']['trakt']
 
     if len(res.json()) == 0:
@@ -217,16 +217,11 @@ def __query_movie(movie, year, configs):
         for obj in res.json():
             if obj['movie']['year'] == int(year):
                 show_title = obj['movie']['title']
-                show_slug = obj['movie']['ids']['slug']
+                # show_slug = obj['movie']['ids']['slug']
                 show_trakt_id = obj['movie']['ids']['trakt']
 
     if dont_add_if_already_watched:
-        watched_history = requests.get('https://api.trakt.tv/sync/history/movies/' + str(show_trakt_id), headers={
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer ' + configs['access_token'],
-            'trakt-api-version': '2',
-            'trakt-api-key': configs['client_id']
-        })
+        watched_history = session.get('https://api.trakt.tv/sync/history/movies/' + str(show_trakt_id))
 
         if watched_history.status_code != 200:
             sys.exit(-1)
@@ -235,7 +230,7 @@ def __query_movie(movie, year, configs):
             print(f"{show_title} already marked as watched, won't add duplicate", end='')
             sys.exit(0)
 
-    checkin(configs, {
+    checkin(session, {
         'movies': [
             {
                 "watched_at": now,
@@ -271,15 +266,9 @@ def __query_movie(movie, year, configs):
 #     })
 
 
-def checkin(configs, body, msg_on_success=None):
-    res = requests.post(
+def checkin(session, body, msg_on_success=None):
+    res = session.post(
         'https://api.trakt.tv/sync/history',
-        headers={
-            'trakt-api-key': configs['client_id'],
-            'trakt-api-version': '2',
-            'Authorization': 'Bearer ' + configs['access_token'],
-            'Content-Type': 'application/json'
-        },
         json=body
     )
 
@@ -298,14 +287,6 @@ MAIN
 
 
 def main():
-    # Get the configs
-    try:
-        f = open(os.path.dirname(os.path.abspath(__file__)) + '/config.json', 'r')
-        data = json.load(f)
-        f.close()
-    except:
-        sys.exit(10)
-
     # Choose what to do
     switch = {
         '--hello': hello,
@@ -315,6 +296,12 @@ def main():
     }
 
     if sys.argv[1] in switch:
+        # Get the configs
+        try:
+            with open(os.path.dirname(os.path.abspath(__file__)) + '/config.json', 'r') as f:
+                data = json.load(f)
+        except:
+            sys.exit(10)
         switch[sys.argv[1]](sys.argv, data)
     else:
         sys.exit(-1)
