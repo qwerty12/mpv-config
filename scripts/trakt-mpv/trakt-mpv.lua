@@ -10,23 +10,24 @@ local hello_ran = false
 -- HELPER FUNCTIONS:
 -- Joins two tables
 local function merge_tables(t1, t2)
-    for k,v in ipairs(t2) do
-        table.insert(t1, v)
-    end 
+    local length = #t2
+    for i = 1, length do
+        t1[#t1 + 1] = t2[i]
+    end
   
     return t1
 end
 
 
 -- Calls the Python file
-local function evoque_python(flags, cancellable, cb)
+local function evoque_python(flags, cancellable, retr_stdout, cb)
     -- Add the flags
     local args = merge_tables({ "python", py_location }, flags)
 
     -- Call the file
     return mp.command_native_async({
         name = "subprocess",
-        capture_stdout = true,
+        capture_stdout = retr_stdout,
         playback_only = cancellable,
         args = args,
     }, cb)
@@ -41,10 +42,10 @@ end
 
 -- Activate Function
 local function activated()
-    evoque_python({"--auth"}, true, function(success, result, error)
+    evoque_python({"--auth"}, true, false, function(success, result, error)
+        mp.remove_key_binding("auth-trakt")
         if result.status == 0 then
             send_message("It's done. Enjoy!", "00FF00", 3)
-            mp.remove_key_binding("auth-trakt")
         else
             send_message("Damn, there was an error in Python :/ Check the console for more info.", "0000FF", 4)
         end
@@ -53,10 +54,10 @@ end
 
 local function activation()
     send_message("Querying trakt.tv... Hold tight", "FFFFFF", 10)
-    evoque_python({"--code"}, true, function(success, result, error)
+    evoque_python({"--code"}, true, true, function(success, result, error)
+        mp.remove_key_binding("auth-trakt")
         if result.status == 0 then
             send_message("Open https://trakt.tv/activate and type: " .. result.stdout .. "\nPress {\\i1}" .. key .. "{\\i0} when done", "FF8800", 50)
-            mp.remove_key_binding("auth-trakt")
             mp.add_forced_key_binding(key, "auth-trakt", activated)
         else
             send_message("Damn, there was an error in Python :/ Check the console for more info.", "0000FF", 4)
@@ -66,7 +67,7 @@ end
 
 -- Checkin Function
 local function checkin(filename)
-    evoque_python({"--query", filename}, false, function(success, result, error)
+    evoque_python({"--query", filename}, false, true, function(success, result, error)
         if result.status == 0 then
             send_message(result.stdout, "00FF00", 2)
         elseif result.status == 14 then
@@ -83,10 +84,10 @@ local function handlemessage()
     local filename = mp.get_property('filename')
     if hello_ran then
         -- if we already had a successful hello invocation in one mpv session, we don't need to keep running it
-        -- this assumption might fail if you leave mpv running for days at a time
+        -- this assumption might fail if you leave mpv running for days at a time and the Trakt session expires for w/e reason
         checkin(filename)
     else
-        evoque_python({"--hello"}, false, function(success, result, error)
+        evoque_python({"--hello"}, false, false, function(success, result, error)
             if not success then return end
             if result and result.killed_by_us then return end
 
