@@ -8,14 +8,8 @@ import re
 import sys
 import os
 import json
-from time import sleep
-
-import requests
-from datetime import date, datetime, timezone
 
 dont_add_if_already_watched = True
-
-now = datetime.now(timezone.utc).isoformat() + "Z"
 
 """
 HELPERS
@@ -50,7 +44,10 @@ def hello(flags, configs):
      - Checks if the access_token has already been set (if not, exits as 11)
      - Checks if there is a need to refresh the token (automaticly refreshes and exits as 0)
     """
-    if 'client_id' not in configs or 'client_secret' not in configs or len(configs['client_id']) != 64 or len(configs['client_secret']) != 64:
+    try:
+        if len(configs['client_id']) != 64 or len(configs['client_secret']) != 64:
+            sys.exit(10)
+    except KeyError:
         sys.exit(10)
 
     if 'access_token' not in configs or len(configs['access_token']) != 64:
@@ -62,7 +59,8 @@ def hello(flags, configs):
 
 def code(flags, configs):
     """ Generate the code """
-    res = requests.post('https://api.trakt.tv/oauth/device/code', json={'client_id': configs['client_id']})
+    from requests import post
+    res = post('https://api.trakt.tv/oauth/device/code', json={'client_id': configs['client_id']})
 
     configs['device_code'] = res.json()['device_code']
     write_json(configs)
@@ -72,7 +70,8 @@ def code(flags, configs):
 
 def auth(flags, configs):
     """ Authenticate """
-    res = requests.post('https://api.trakt.tv/oauth/device/token', json={
+    from requests import post, get
+    res = post('https://api.trakt.tv/oauth/device/token', json={
         'client_id': configs['client_id'],
         'client_secret': configs['client_secret'],
         'code': configs['device_code']
@@ -81,6 +80,7 @@ def auth(flags, configs):
     res_json = res.json()
 
     if 'access_token' in res_json:
+        from datetime import date
         # Success
         configs['access_token'] = res_json['access_token']
         configs['refresh_token'] = res_json['refresh_token']
@@ -88,7 +88,7 @@ def auth(flags, configs):
         configs['today'] = str(date.today())
 
         # Get the user's slug
-        res = requests.get('https://api.trakt.tv/users/settings', headers={
+        res = get('https://api.trakt.tv/users/settings', headers={
             'trakt-api-key': configs['client_id'],
             'Authorization': 'Bearer ' + configs['access_token'],
             'trakt-api-version': '2'
@@ -106,8 +106,12 @@ def auth(flags, configs):
 
 def query(flags, configs):
     """ Searches Trakt.tv for the content that it's being watched """
+    from datetime import datetime, timezone
+    now = datetime.now(timezone.utc).isoformat() + "Z"
+    from requests import Session
+
     media = flags[2]
-    session = requests.Session()
+    session = Session()
     session.headers.update({
         'Accept-Encoding': 'gzip',
         'Content-Type': 'application/json',
@@ -123,31 +127,31 @@ def query(flags, configs):
         name = infos.group(1)
         season_id = infos.group(2)
         ep_id = infos.group(3)
-        __query_search_ep(name, season_id, ep_id, session)
+        __query_search_ep(name, season_id, ep_id, session, now)
 
     # It's not an episode, then it must be a movie (Movie name followed by the year)
     infos = re.search(r'(.+)([1-9][0-9]{3}).*', media, re.IGNORECASE)
 
     if infos is not None and len(infos.groups()) == 2:
         movie_year = infos.group(2)
-        __query_movie(infos.group(1), movie_year, session)
+        __query_movie(infos.group(1), movie_year, session, now)
 
     # Neither of the patterns matched, try using guessit
     import guessit
     guess = guessit.guessit(media)
     if guess['type'] == "episode":
-        __query_search_ep(guess['title'], str(guess['season']), str(guess['episode']), session)
+        __query_search_ep(guess['title'], str(guess['season']), str(guess['episode']), session, now)
     elif guess['type'] == "movie":
         year = guess.get('year')
         if year is not None: year = str(year)
-        __query_movie(guess['title'], year, session)
+        __query_movie(guess['title'], year, session, now)
 
     # Neither of the patterns matched, try using the whole name (Name followed by the file extension)
     # infos = re.search(r'(.+)\.[0-9A-Za-z]{3}', media, re.IGNORECASE)
     # __query_whatever(infos.group(1), configs)
 
 
-def __query_search_ep(name, season, ep, session):
+def __query_search_ep(name, season, ep, session, timestamp):
     """ Get the episode """
     res = session.get(
         'https://api.trakt.tv/search/show',
@@ -188,14 +192,14 @@ def __query_search_ep(name, season, ep, session):
     checkin(session, {
         'episodes': [
             {
-                "watched_at": now,
+                "watched_at": timestamp,
                 "ids": ids
             }
         ]
     }, f"{show_title} S{season}E{ep} marked as watched")
 
 
-def __query_movie(movie, year, session):
+def __query_movie(movie, year, session, timestamp):
     """ Get the movie """
     res = session.get(
         'https://api.trakt.tv/search/movie',
@@ -233,7 +237,7 @@ def __query_movie(movie, year, session):
     checkin(session, {
         'movies': [
             {
-                "watched_at": now,
+                "watched_at": timestamp,
                 "ids": {'trakt': show_trakt_id}
             }
         ]
