@@ -11,6 +11,11 @@
         "multi-type": "concat"
     },
     {
+        "key": "Ctrl+a",
+        "command": ["audio-add", "%f"],
+        "filter": "file"
+    },
+    {
         "key": "Ctrl+c",
         "command": [
             ["run", "powershell", "-noprofile", "-command", "Set-Clipboard", "%F"],
