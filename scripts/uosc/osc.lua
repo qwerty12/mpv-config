@@ -762,7 +762,7 @@ function render_elements(master_ass)
             local seekRangeLineHeight = innerH / 5
 
             if slider_lo.stype ~= "bar" then
-                foH = elem_geo.h / 2
+                foH = elem_geo.h / 1.75
             else
                 foH = slider_lo.border + slider_lo.gap
             end
