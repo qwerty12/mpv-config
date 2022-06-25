@@ -54,4 +54,4 @@ local function on_focused(_, value)
     end
 end
 
-mp.observe_property("vo-configured", "bool", on_focused)
+mp.observe_property("focused", "bool", on_focused)
