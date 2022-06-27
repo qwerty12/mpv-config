@@ -1,20 +1,21 @@
 
 --[[
 
-This script deletes the file that is currently playing
-via keyboard shortcut, the file is moved to the recycle bin.
+    This script deletes the file that is currently playing
+    via keyboard shortcut, the file is moved to the recycle bin.
 
-On Linux the app trash-cli must be installed first.
+    On Linux the app trash-cli must be installed first.
 
-Usage:
-Add bindings to input.conf:
-KP0 script-message-to delete_current_file delete-file KP1 "Press 1 to delete file"
+    Usage:
+    Add bindings to input.conf:
+    KP0 script-message-to delete_current_file delete-file KP1 "Press 1 to delete file"
 
-Press KP0 to initiate the delete operation,
-the script will ask to confirm by pressing KP1.
-You may customize the the init and confirm key and the confirm message.
-Confirm key and confirm message are optional.
-]]
+    Press KP0 to initiate the delete operation,
+    the script will ask to confirm by pressing KP1.
+    You may customize the the init and confirm key and the confirm message.
+    Confirm key and confirm message are optional.
+
+]]--
 
 key_bindings = {}
 
@@ -72,13 +73,13 @@ function handle_confirm_key()
     if file_to_delete == path then
         remove_current_file()
         delete_file(file_to_delete)
-        remove_key_bindings()
+        remove_bindings()
         file_to_delete = ""
     end
 end
 
 function cleanup()
-    remove_key_bindings()
+    remove_bindings()
     file_to_delete = ""
     mp.commandv("show-text", "")
 end
@@ -89,7 +90,7 @@ function get_bindings()
     }
 end
 
-function add_key_bindings()
+function add_bindings()
     if #key_bindings > 0 then
         return
     end
@@ -103,7 +104,7 @@ function add_key_bindings()
     end
 end
 
-function remove_key_bindings()
+function remove_bindings()
     if #key_bindings == 0 then
         return
     end
@@ -123,7 +124,7 @@ function client_message(event)
     elseif event.args[1] == "delete-file" and #event.args == 3 and #key_bindings == 0 then
         confirm_key = event.args[2]
         mp.add_timeout(5, cleanup)
-        add_key_bindings()
+        add_bindings()
         file_to_delete = mp.get_property("path")
         mp.commandv("show-text", event.args[3], "5000")
     end
