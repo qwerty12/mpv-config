@@ -14,6 +14,8 @@ mp.add_key_binding("z", "speed_toggle", function() speed_toggle(mp.get_property(
 
 ---
 local function has_sub()
+	if true then return true end
+
 	local all_tracks = mp.get_property_native('track-list', {})
 	for i = 1, #all_tracks do
 		if all_tracks[i].type == 'sub' then
