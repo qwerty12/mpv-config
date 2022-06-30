@@ -2037,7 +2037,7 @@ function osc_init()
     --ch_prev
     ne = new_element("ch_prev", "button")
 
-    ne.enabled = have_ch
+    ne.visible = have_ch
     ne.content = "\238\132\132"
     ne.eventresponder["mbtn_left_up"] =
         function ()
@@ -2054,7 +2054,7 @@ function osc_init()
     --ch_next
     ne = new_element("ch_next", "button")
 
-    ne.enabled = have_ch
+    ne.visible = have_ch
     ne.content = "\238\132\133"
     ne.eventresponder["mbtn_left_up"] =
         function ()
