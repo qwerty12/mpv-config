@@ -2206,16 +2206,16 @@ function osc_init()
     ne = new_element("tc_left", "button")
 
     ne.content = function ()
-        if (state.tc_ms) then
-            return (mp.get_property_osd("playback-time/full"))
-        else
+        -- if (state.tc_ms) then
+        --     return (mp.get_property_osd("playback-time/full"))
+        -- else
             return (mp.get_property_osd("playback-time"))
-        end
+        -- end
     end
-    ne.eventresponder["mbtn_left_up"] = function ()
-        state.tc_ms = not state.tc_ms
-        request_init()
-    end
+    -- ne.eventresponder["mbtn_left_up"] = function ()
+    --     state.tc_ms = not state.tc_ms
+    --     request_init()
+    -- end
 
     -- tc_right (total/remaining time)
     ne = new_element("tc_right", "button")
@@ -2223,17 +2223,17 @@ function osc_init()
     ne.visible = (mp.get_property_number("duration", 0) > 0)
     ne.content = function ()
         if (state.rightTC_trem) then
-            if state.tc_ms then
-                return ("-"..mp.get_property_osd("playtime-remaining/full"))
-            else
+            -- if state.tc_ms then
+            --     return ("-"..mp.get_property_osd("playtime-remaining/full"))
+            -- else
                 return ("-"..mp.get_property_osd("playtime-remaining"))
-            end
+            -- end
         else
-            if state.tc_ms then
-                return (mp.get_property_osd("duration/full"))
-            else
+            -- if state.tc_ms then
+            --     return (mp.get_property_osd("duration/full"))
+            -- else
                 return (mp.get_property_osd("duration"))
-            end
+            -- end
         end
     end
     ne.eventresponder["mbtn_left_up"] =
