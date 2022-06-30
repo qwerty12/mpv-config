@@ -1416,32 +1416,29 @@ end
     lo.geometry = {x = rjno1X + 10 * 2.4 * 0 + 10 * 2.4, y = rjno1Y + 10 * 3 + 30 / 2 + 2 , an = 5, w = 26, h = 30}
     lo.style = osc_styles.rjno150Buttons
 
-		
-    -- lo = add_layout("ch_prev")
-    -- lo.geometry = {x = rjno1X + 10 * 3.5 * 1 + 10 * 3 -8, y = rjno1Y + 10 * 1.6 + 50 / 2 , an = 5, w = 30, h = 50}
-    -- lo.style = osc_styles.rjno140Buttons	
-	
+    lo = add_layout("ch_prev")
+    lo.geometry = {x = rjno1X + 10 * 6.8 * 1 + 10 * 7.5, y = rjno1Y + 10 * 1.6 + 50 / 2 , an = 5, w = 26, h = 15}
+    lo.style = osc_styles.rjno140Buttons
+
 	lo = add_layout("skipback")
     lo.geometry = {x = rjno1X + 10 * 2.4 * 1 + 10 * 2.4, y = rjno1Y + 10 * 3 + 30 / 2 + 2 , an = 5, w = 26, h = 30}
-    lo.style = osc_styles.rjno150Buttons	
+    lo.style = osc_styles.rjno150Buttons
 
-			
     lo = add_layout("skipfrwd")
     lo.geometry = {x = rjno1X + 10 * 2.4 * 2 + 10 * 2.4, y = rjno1Y + 10 * 3 + 30 / 2 + 2 , an = 5, w = 26, h = 30}
-    lo.style = osc_styles.rjno150Buttons	
+    lo.style = osc_styles.rjno150Buttons
 
-	
-	-- lo = add_layout("ch_next")
-    -- lo.geometry = {x = rjno1X + 10 * 3.5 * 5 + 10 * 3 -8, y = rjno1Y + 10 * 1.6 + 50 / 2 , an = 5, w = 30, h = 50}
-    -- lo.style = osc_styles.rjno140Buttons	
-	
+	lo = add_layout("ch_next")
+    lo.geometry = {x = rjno1X + 10 * 6.8 * 1 + 10 * 7.5, y = rjno1Y + 10 * 1.6 + 85 / 2 , an = 5, w = 26, h = 15}
+    lo.style = osc_styles.rjno140Buttons
+
     lo = add_layout("pl_prev")
     lo.geometry = {x = rjno1X + 10 * 2.4 * 3 + 10 * 2.4, y = rjno1Y + 10 * 3 + 30 / 2 + 2 , an = 5, w = 26, h = 30}
-    lo.style = osc_styles.rjno150Buttons		
+    lo.style = osc_styles.rjno150Buttons
 
     lo = add_layout("pl_next")
     lo.geometry = {x = rjno1X + 10 * 2.4 * 4 + 10 * 2.4, y = rjno1Y + 10 * 3 + 30 / 2 + 2 , an = 5, w = 26, h = 30}
-    lo.style = osc_styles.rjno150Buttons	
+    lo.style = osc_styles.rjno150Buttons
 	
 	
 
