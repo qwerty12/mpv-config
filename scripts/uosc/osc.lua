@@ -480,7 +480,7 @@ end
 
 -- WindowControl helpers
 function window_controls_enabled()
-    val = user_opts.windowcontrols
+    local val = user_opts.windowcontrols
     if val == "auto" then
         return not state.border
     else
@@ -1193,7 +1193,7 @@ function window_controls(topbar)
     -- default font, even if another font with them is available.
 
     -- Close: 🗙
-    ne = new_element("close", "button")
+    local ne = new_element("close", "button")
     ne.content = "\238\132\149"
     ne.eventresponder["mbtn_left_up"] =
         function () mp.commandv("quit") end
@@ -1357,7 +1357,7 @@ layouts["box"] = function ()
     --
     -- Seekbar
     --
-	geo ={x = rjno1X + 1100 / 2 , y = rjno1Y + 6+8+3 , an = 5, w = 1080, h = 9}
+	local geo ={x = rjno1X + 1100 / 2 , y = rjno1Y + 6+8+3 , an = 5, w = 1080, h = 9}
 --    lo = add_layout("seekbar")
 	
 if user_opts["seekbarstyle"] ~= "knob" then   
@@ -2144,7 +2144,7 @@ function osc_init()
     ne.slider.tooltipF = function (pos)
         local duration = mp.get_property_number("duration", nil)
         if not ((duration == nil) or (pos == nil)) then
-            possec = duration * (pos / 100)
+            local possec = duration * (pos / 100)
             return mp.format_time(possec)
         else
             return ""
