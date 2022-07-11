@@ -169,11 +169,10 @@ local settings = {
   playlist_sliced_suffix = "...",
 
   --output visual feedback to OSD for tasks
-  display_osd_feedback = false,
+  display_osd_feedback = true,
 
   -- reset cursor navigation when playlist is not visible
-  reset_cursor_on_close = true
-
+  reset_cursor_on_close = true,
 }
 local opts = require("mp.options")
 opts.read_options(settings, "playlistmanager", function(list) update_opts(list) end)
@@ -758,8 +757,18 @@ function parse_home(path)
   return result
 end
 
+local interactive_save = false
+function activate_playlist_save()
+  if interactive_save then
+    remove_keybinds()
+    mp.command("script-message playlistmanager-save-interactive \"start interactive filenaming process\"")
+  else
+    save_playlist()
+  end
+end
+
 --saves the current playlist into a m3u file
-function save_playlist()
+function save_playlist(filename)
   local length = mp.get_property_number('playlist-count', 0)
   if length == 0 then return end
 
@@ -787,7 +796,9 @@ function save_playlist()
   local date = os.date("*t")
   local datestring = ("%02d-%02d-%02d_%02d-%02d-%02d"):format(date.year, date.month, date.day, date.hour, date.min, date.sec)
 
-  local savepath = utils.join_path(savepath, datestring.."_playlist-size_"..length..".m3u")
+  local name = filename or datestring.."_playlist-size_"..length..".m3u"
+
+  local savepath = utils.join_path(savepath, name)
   local file, err = io.open(savepath, "w")
   if not file then
     msg.error("Error in creating playlist file, check permissions. Error: "..(err or "unknown"))
@@ -1074,9 +1085,10 @@ function handlemessage(msg, value, value2)
   if msg == "shuffle" then shuffleplaylist() ; return end
   if msg == "reverse" then reverseplaylist() ; return end
   if msg == "loadfiles" then playlist(value) ; return end
-  if msg == "save" then save_playlist() ; return end
+  if msg == "save" then save_playlist(value) ; return end
   if msg == "playlist-next" then playlist_next(true) ; return end
   if msg == "playlist-prev" then playlist_prev(true) ; return end
+  if msg == "enable-interactive-save" then interactive_save = true end
 end
 
 mp.register_script_message("playlistmanager", handlemessage)
@@ -1085,7 +1097,7 @@ mp.add_key_binding("CTRL+p", "sortplaylist", sortplaylist)
 --mp.add_key_binding("CTRL+P", "shuffleplaylist", shuffleplaylist)
 mp.add_key_binding("CTRL+R", "reverseplaylist", reverseplaylist)
 --mp.add_key_binding("P", "loadfiles", playlist)
---mp.add_key_binding("p", "saveplaylist", save_playlist)
+--mp.add_key_binding("p", "saveplaylist", activate_playlist_save)
 mp.add_key_binding("SHIFT+ENTER", "showplaylist", toggle_playlist)
 
 mp.register_event("file-loaded", on_loaded)
