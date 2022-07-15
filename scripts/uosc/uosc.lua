@@ -302,7 +302,9 @@ local options = {
 }
 opt.read_options(options, 'uosc')
 local config = {
-	render_delay = 0.03, -- sets max rendering frequency
+	-- sets max rendering frequency in case the
+	-- native rendering frequency could not be detected
+	render_delay = 1/60,
 	font = mp.get_property('options/osd-font'),
 	menu_parent_opacity = 0.4,
 	menu_min_width = 260
@@ -329,7 +331,7 @@ local state = {
 	media_title = '',
 	duration = nil,
 	position = nil,
-	pause = false,
+	pause = mp.get_property_native('pause'),
 	chapters = nil,
 	chapter_ranges = nil,
 	border = mp.get_property_native('border'),
@@ -348,6 +350,7 @@ local state = {
 	end),
 	mouse_bindings_enabled = false,
 	cached_ranges = nil,
+	render_delay = config.render_delay,
 }
 local forced_key_bindings -- defined at the bottom next to events
 
@@ -2180,7 +2183,7 @@ function request_render()
 
 	if not state.render_timer:is_enabled() then
 		local now = mp.get_time()
-		local timeout = config.render_delay - (now - state.render_last_time)
+		local timeout = state.render_delay - (now - state.render_last_time)
 		if timeout < 0 then
 			timeout = 0
 		end
@@ -2244,22 +2247,15 @@ elements:add('window_border', Element.new({
 }))
 elements:add('pause_indicator', Element.new({
 	base_icon_opacity = options.pause_indicator == 'flash' and 1 or 0.8,
-	paused = false,
+	paused = state.pause,
 	type = options.pause_indicator,
 	is_manual = options.pause_indicator == 'manual',
 	fadeout_requested = false,
 	opacity = 0,
 	init = function(this)
-		local initial_call = true
 		mp.observe_property('pause', 'bool', function(_, paused)
-			if initial_call then
-				initial_call = false
-				return
-			end
-
-			this.paused = paused
-
 			if options.pause_indicator == 'flash' then
+				if this.paused == paused then return end
 				this:flash()
 			elseif options.pause_indicator == 'static' then
 				this:decide()
@@ -2970,6 +2966,20 @@ function load_file_in_current_directory(index)
 	end
 end
 
+function update_render_delay(name, fps)
+	if fps then
+		state.render_delay = 1/fps
+	end
+end
+
+function observe_display_fps(name, fps)
+	if fps then
+		mp.unobserve_property(update_render_delay)
+		mp.unobserve_property(observe_display_fps)
+		mp.observe_property('display-fps', 'native', update_render_delay)
+	end
+end
+
 -- MENUS
 
 function create_select_tracklist_type_menu_opener(menu_title, track_type, track_prop)
@@ -3160,7 +3170,10 @@ mp.observe_property('demuxer-cache-state', 'native', function(prop, cache_state)
 	end
 	local cache_ranges = cache_state['seekable-ranges']
 	state.cached_ranges = #cache_ranges > 0 and cache_ranges or nil
+	request_render()
 end)
+mp.observe_property('display-fps', 'native', observe_display_fps)
+mp.observe_property('estimated-display-fps', 'native', update_render_delay)
 
 -- CONTROLS
 
