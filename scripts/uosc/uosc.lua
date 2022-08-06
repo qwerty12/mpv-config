@@ -666,7 +666,7 @@ end
 -- Can't use `os.remove()` as it fails on paths with unicode characters.
 -- Returns `result, error`, result is table of `status:number(<0=error), stdout, stderr, error_string, killed_by_us:boolean`
 function delete_file(file_path)
-	local args = state.os == 'windows' and {'cmd', '/C', 'del', file_path} or {'rm', file_path}
+	local args = state.os == 'windows' and {'cmd', '/C', 'del', '/F', '/Q', file_path} or {'rm', '-f', file_path}
 	return mp.command_native({name = 'subprocess', args = args, playback_only = false, capture_stdout = true, capture_stderr = true})
 end
 
@@ -2460,7 +2460,7 @@ if options.top_bar_controls then
 		end,
 		on_prop_border = function(this) this:update_dimensions() end,
 		on_display_change = function(this) this:update_dimensions() end,
-		on_mbtn_left_down = function() mp.commandv('cycle', 'window-maximized') end
+		on_mbtn_left_down = function() mp.commandv('cycle', 'fullscreen') end --state.fullscreen and 'fullscreen' or 'window-maximized'
 	}))
 	elements:add('window_controls_close', Element.new({
 		update_dimensions = function(this)
