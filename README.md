@@ -36,14 +36,22 @@ A modified [osc-potplayer-box-knob-or-bar-0.lua](https://github.com/422658476/MP
 
 * You should have `cacert` globally installed with [Scoop](https://scoop.sh) or comment out `tls-ca-file` and `tls-verify` in mpv.conf
 
+* mpv.conf and script-opts\autosubsync.conf, at the very least, hardcode paths specific to my system, which you should change for correct operation
+
 ### Credits
 
 For the scripts, it should be obvious where they're from, so I'll avoid listing them again. Configurations were copied from the following places:
 
 https://github.com/dexeonify/mpv-config/
+
 https://github.com/CogentRedTester/my-mpv-settings/
+
 https://github.com/po5/mpv-config/
+
 https://github.com/AN3223/dotfiles/
+
 https://github.com/he2a/mpv-config/
+
 https://github.com/DrPleaseRespect/DrPleaseRespect-MPV-Config/
+
 https://github.com/deus0ww/mpv-conf/
