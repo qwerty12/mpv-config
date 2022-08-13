@@ -26,9 +26,9 @@ local function has_sub()
 end
 
 local function is_likely_show(path)
-	return (path:find("\\Downloads\\TV\\", 1, true) ~= nil) or 
-	((path:find("\\Downloads\\src1\\", 1, true) ~= nil or path:find("\\Downloads\\src2\\", 1, true) ~= nil) and 
-	 (path:find(".*[xhXH]26[45]*") ~= nil or path:find(".*[Ss]%d%d%d?[Ee]%d%d%d?*") ~= nil))
+	return (path:find("\\Downloads\\TV\\", 1, true) ~= nil) or
+	((path:find("\\Downloads\\src1\\", 1, true) ~= nil or path:find("\\Downloads\\src2\\", 1, true) ~= nil) and
+	 (path:find(".*[xhXH]26[45].*") ~= nil or path:find(".*[Ss]%d%d%d?[Ee]%d%d%d?.*") ~= nil))
 end
 
 local last_observed_speed = "1.00"
