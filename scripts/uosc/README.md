@@ -216,27 +216,13 @@ Delete currently playing file and quit mpv.
 
 Show current file in your operating systems' file explorer.
 
+#### `audio-device`
+
+Switch audio output device.
+
 #### `open-config-directory`
 
 Open directory with `mpv.conf` in file explorer.
-
-## Message handlers
-
-**uosc** listens on some messages that can be sent with `script-message-to uosc` command. Example:
-
-```
-R    script-message-to uosc show-submenu "Utils > Aspect ratio"
-```
-
-#### `show-submenu <menu_id>`
-
-Opens one of the submenus defined in `input.conf` (read on how to build those below).
-
-Parameters
-
-##### `<menu_id>`
-
-ID (title) of the submenu, including `>` subsections as defined in `input.conf`. It has to be match the title exactly.
 
 ## Menu
 
@@ -330,6 +316,7 @@ alt+s       script-binding uosc/load-subtitles     #! Utils > Load subtitles
 #           set video-aspect-override "16:9"       #! Utils > Aspect ratio > 16:9
 #           set video-aspect-override "4:3"        #! Utils > Aspect ratio > 4:3
 #           set video-aspect-override "2.35:1"     #! Utils > Aspect ratio > 2.35:1
+#           script-binding uosc/audio-device       #! Utils > Audio devices
 ctrl+s      async screenshot                       #! Utils > Screenshot
 O           script-binding uosc/show-in-directory  #! Utils > Show in directory
 #           script-binding uosc/open-config-directory #! Utils > Open config directory
@@ -337,6 +324,93 @@ esc         quit #! Quit
 ```
 
 To see all the commands you can bind keys or menu items to, refer to [mpv's list of input commands documentation](https://mpv.io/manual/master/#list-of-input-commands).
+
+## Message handlers
+
+**uosc** listens on some messages that can be sent with `script-message-to uosc` command. Example:
+
+```
+R    script-message-to uosc show-submenu "Utils > Aspect ratio"
+```
+
+### `get-version <script_id>`
+
+Tells uosc to send it's version to `<script_id>` script. Useful if you want to detect that uosc is installed. Example:
+
+```lua
+-- Register response handler
+mp.register_script_message('uosc-version', function(version)
+	print('uosc version', version)
+end)
+
+-- Ask for version
+mp.commandv('script-message-to', 'uosc', 'get-version', mp.get_script_name())
+```
+
+### `show-submenu <menu_id>`
+
+Opens one of the submenus defined in `input.conf` (read on how to build those in the Menu documentation above).
+
+Parameters
+
+##### `<menu_id>`
+
+ID (title) of the submenu, including `>` subsections as defined in `input.conf`. It has to be match the title exactly.
+
+### `show-menu <menu_json>`
+
+A message other scripts can send to display a uosc menu serialized as JSON.
+
+Menu data structure:
+
+```
+Menu {
+    type: string | nil;
+    title: string | nil;
+    selected_index: number | nil;
+    active_index: number | nil;
+    items: Item[];
+}
+
+Submenu {
+    title: string | nil;
+    items: Item[];
+}
+
+Item = Command | Submenu;
+
+Command {
+    title: string | nil;
+    hint: string | nil;
+    value: string | string[];
+}
+```
+
+When command value is a string, it'll be passed to `mp.command(value)`. If it's a table (array) of strings, it'll be used as `mp.commandv(table.unpack(value))`.
+
+Menu `type` controls what happens when opening a menu when some other menu is already open. When the new menu type is different, it'll replace the currently opened menu. When it's the same, the currently open menu will simply be closed. This is used to implement toggling (open->close) of menus with the same key.
+
+`active_index` displays the item at that index as active. For example, in subtitles menu, the currently displayed subtitles are considered _active_.
+
+`selected_index` marks item at that index as selected - the starting position for all keyboard based navigation in the menu. It defaults to `active_index` if any, or `1` otherwise, which means in most cases you can just ignore this prop.
+
+Example:
+
+```lua
+local utils = require('mp.utils')
+local menu = {
+    type = 'menu_type',
+    title = 'Custom menu',
+    active_index = 1,
+    selected_index = 1,
+    items = {
+        {title = 'Foo', hint = 'foo', value = 'quit'},
+        {title = 'Bar', hint = 'bar', value = 'quit'},
+    }
+}
+local json = utils.format_json(menu)
+mp.commandv('script-message-to', 'uosc', 'show-menu', json)
+```
 
 ## Tips
 
