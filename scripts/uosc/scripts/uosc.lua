@@ -111,7 +111,6 @@ local config = {
 	render_delay = 1 / 60,
 	font = mp.get_property('options/osd-font'),
 }
-local bold_tag = options.font_bold and '\\b1' or ''
 local display = {
 	width = 1280,
 	height = 720,
@@ -377,8 +376,7 @@ function text_width_estimate(text, font_size)
 end
 
 function utf8_iter(string)
-	local byte_start = 1
-	local byte_count = 1
+	local byte_start, byte_count = 1, 1
 
 	return function()
 		if #string < byte_start then return nil end
@@ -493,21 +491,6 @@ end
 
 function opacity_to_alpha(opacity)
 	return 255 - math.ceil(255 * opacity)
-end
-
-function ass_opacity(opacity, fraction)
-	fraction = fraction ~= nil and fraction or 1
-	if type(opacity) == 'number' then
-		return string.format('{\\alpha&H%X&}', opacity_to_alpha(opacity * fraction))
-	else
-		return string.format(
-			'{\\1a&H%X&\\2a&H%X&\\3a&H%X&\\4a&H%X&}',
-			opacity_to_alpha((opacity[1] or 0) * fraction),
-			opacity_to_alpha((opacity[2] or 0) * fraction),
-			opacity_to_alpha((opacity[3] or 0) * fraction),
-			opacity_to_alpha((opacity[4] or 0) * fraction)
-		)
-	end
 end
 
 -- Ensures path is absolute and normalizes slashes to the current platform
@@ -658,6 +641,133 @@ function is_element_persistent(name)
 	return (options[option_name].audio and state.is_audio) or (options[option_name].paused and state.pause)
 end
 
+-- ASSDRAW EXTENSIONS
+
+local ass_mt = getmetatable(assdraw.ass_new())
+
+-- Opacity
+---@param opacity number|number[] Opacity of all elements, or an array of [primary, secondary, border, shadow] opacities.
+---@param fraction? number Optionally adjust the above opacity by this fraction.
+function ass_mt:opacity(opacity, fraction)
+	fraction = fraction ~= nil and fraction or 1
+	if type(opacity) == 'number' then
+		self.text = self.text .. string.format('{\\alpha&H%X&}', opacity_to_alpha(opacity * fraction))
+	else
+		self.text = self.text .. string.format(
+			'{\\1a&H%X&\\2a&H%X&\\3a&H%X&\\4a&H%X&}',
+			opacity_to_alpha((opacity[1] or 0) * fraction),
+			opacity_to_alpha((opacity[2] or 0) * fraction),
+			opacity_to_alpha((opacity[3] or 0) * fraction),
+			opacity_to_alpha((opacity[4] or 0) * fraction)
+		)
+	end
+end
+
+-- Icon
+---@param x number
+---@param y number
+---@param size number
+---@param name string
+---@param opts? {color?: string; border?: number; border_color?: string; opacity?: number; clip?: string}
+function ass_mt:icon(x, y, size, name, opts)
+	opts = opts or {}
+	opts.size = size
+	opts.font = 'MaterialIconsSharp-Regular'
+	self:txt(x, y, 5, name, opts)
+end
+
+-- String
+-- Named `txt` because `ass.text` is a value.
+---@param x number
+---@param y number
+---@param alignment number
+---@param value string|number
+---@param opts {size: number; font?: string; color?: string; bold?: boolean; border?: number; border_color?: string; shadow?: number; shadow_color?: string; wrap?: number; opacity?: number; clip?: string}
+function ass_mt:txt(x, y, alignment, value, opts)
+	local border_size = opts.border or 0
+	local shadow_size = opts.shadow or 0
+	local tags = '\\pos(' .. x .. ',' .. y .. ')\\an' .. alignment .. '\\blur0'
+	-- font
+	tags = tags .. '\\fn' .. (opts.font or config.font)
+	-- font size
+	tags = tags .. '\\fs' .. opts.size
+	-- bold
+	if opts.bold then tags = tags .. '\\b1' end
+	-- wrap
+	if opts.wrap then tags = tags .. '\\q' .. opts.wrap end
+	-- border
+	tags = tags .. '\\bord' .. border_size
+	-- shadow
+	tags = tags .. '\\shad' .. shadow_size
+	-- colors
+	tags = tags .. '\\1c&H' .. (opts.color or options.color_foreground)
+	if border_size > 0 then
+		tags = tags .. '\\3c&H' .. (opts.border_color or options.color_background)
+	end
+	if shadow_size > 0 then
+		tags = tags .. '\\4c&H' .. (opts.shadow_color or options.color_background)
+	end
+	-- opacity
+	if opts.opacity then
+		tags = tags .. string.format('\\alpha&H%X&', opacity_to_alpha(opts.opacity))
+	end
+	-- clip
+	if opts.clip then
+		tags = tags .. opts.clip
+	end
+	-- render
+	self:new_event()
+	self.text = self.text .. '{' .. tags .. '}' .. value
+end
+
+-- Rectangle
+---@param ax number
+---@param ay number
+---@param bx number
+---@param by number
+---@param opts? {color?: string; border?: number; border_color?: string; opacity?: number; clip?: string, radius?: number}
+function ass_mt:rect(ax, ay, bx, by, opts)
+	opts = opts or {}
+	local border_size = opts.border or 0
+	local tags = '\\pos(0,0)\\blur0'
+	-- border
+	tags = tags .. '\\bord' .. border_size
+	-- colors
+	tags = tags .. '\\1c&H' .. (opts.color or options.color_foreground)
+	if border_size > 0 then
+		tags = tags .. '\\3c&H' .. (opts.border_color or options.color_background)
+	end
+	-- opacity
+	if opts.opacity then
+		tags = tags .. string.format('\\alpha&H%X&', opacity_to_alpha(opts.opacity))
+	end
+	-- clip
+	if opts.clip then
+		tags = tags .. opts.clip
+	end
+	-- draw
+	self:new_event()
+	self.text = self.text .. '{' .. tags .. '}'
+	self:draw_start()
+	if opts.radius then
+		self:round_rect_cw(ax, ay, bx, by, opts.radius)
+	else
+		self:rect_cw(ax, ay, bx, by)
+	end
+	self:draw_stop()
+end
+
+-- Circle
+---@param x number
+---@param y number
+---@param radius number
+---@param opts? {color?: string; border?: number; border_color?: string; opacity?: number; clip?: string}
+function ass_mt:circle(x, y, radius, opts)
+	opts = opts or {}
+	opts.radius = radius
+	self:rect(x - radius, y - radius, x + radius, y + radius, opts)
+end
+
 -- Element
 --[[
 Signature:
@@ -792,7 +902,7 @@ function Elements:add(name, element)
 	request_render()
 end
 
-function Elements:remove(name, props)
+function Elements:remove(name)
 	Elements.itable = itable_remove(Elements.itable, self[name])
 	self[name] = nil
 	request_render()
@@ -928,8 +1038,9 @@ function Menu:open(items, open_item, opts)
 				-- M as a stand in for icon
 				local hint_icon = item.hint or (has_submenu and 'M' or nil)
 				local hint_icon_size = item.hint and this.font_size_hint or this.font_size
-				local estimated_width = text_width_estimate(item.title, this.font_size)
-					+ text_width_estimate(hint_icon, hint_icon_size)
+				item.title_width = text_width_estimate(item.title, this.font_size)
+				item.hint_width = text_width_estimate(hint_icon, hint_icon_size)
+				local estimated_width = item.title_width + item.hint_width
 					+ (this.item_content_spacing * spacings_in_item)
 				if estimated_width > estimated_max_width then
 					estimated_max_width = estimated_width
@@ -1285,129 +1396,6 @@ function Menu:close(immediate, callback)
 	end
 end
 
--- ICONS
---[[
-ASS \shadN shadows are drawn also below the element, which when there is an
-opacity in play, blends icon colors into ugly greys. The mess below is an
-attempt to fix it by rendering shadows for icons with clipping.
-
-Add icons by adding functions to render them to `icons` table.
-
-Signature: function(pos_x, pos_y, size) => string
-
-Function has to return ass path coordinates to draw the icon centered at pox_x
-and pos_y of passed size.
-]]
-local icons = {}
-function icon(name, icon_x, icon_y, icon_size, shad_x, shad_y, shad_size, backdrop, opacity, clip)
-	local ass = assdraw.ass_new()
-	local icon_path = icons[name](icon_x, icon_y, icon_size)
-	local icon_color = options['color_' .. backdrop .. '_text']
-	local shad_color = options['color_' .. backdrop]
-	local use_border = (shad_x + shad_y) == 0
-	local icon_border = use_border and shad_size or 0
-
-	-- clip can't clip out shadows, a very annoying limitation I can't work
-	-- around without going back to ugly default ass shadows, but atm I actually
-	-- don't need clipping of icons with shadows, so I'm choosing to ignore this
-	if not clip then
-		clip = ''
-	end
-
-	if not use_border then
-		ass:new_event()
-		ass:append('{\\blur0\\bord0\\shad0\\1c&H' .. shad_color .. '\\iclip(' .. ass.scale .. ', ' .. icon_path .. ')}')
-		ass:append(ass_opacity(opacity))
-		ass:pos(shad_x + shad_size, shad_y + shad_size)
-		ass:draw_start()
-		ass:append(icon_path)
-		ass:draw_stop()
-	end
-
-	ass:new_event()
-	ass:append('{\\blur0\\bord' .. icon_border .. '\\shad0\\1c&H' .. icon_color .. '\\3c&H' .. shad_color .. clip .. '}')
-	ass:append(ass_opacity(opacity))
-	ass:pos(0, 0)
-	ass:draw_start()
-	ass:append(icon_path)
-	ass:draw_stop()
-
-	return ass.text
-end
-
-function icons._volume(muted, pos_x, pos_y, size)
-	local ass = assdraw.ass_new()
-	local scale = size / 200
-	local function x(number) return pos_x + (number * scale) end
-	local function y(number) return pos_y + (number * scale) end
-	ass:move_to(x(-85), y(-35))
-	ass:line_to(x(-50), y(-35))
-	ass:line_to(x(-5), y(-75))
-	ass:line_to(x(-5), y(75))
-	ass:line_to(x(-50), y(35))
-	ass:line_to(x(-85), y(35))
-	if muted then
-		ass:move_to(x(76), y(-35))
-		ass:line_to(x(50), y(-9))
-		ass:line_to(x(24), y(-35))
-		ass:line_to(x(15), y(-26))
-		ass:line_to(x(41), y(0))
-		ass:line_to(x(15), y(26))
-		ass:line_to(x(24), y(35))
-		ass:line_to(x(50), y(9))
-		ass:line_to(x(76), y(35))
-		ass:line_to(x(85), y(26))
-		ass:line_to(x(59), y(0))
-		ass:line_to(x(85), y(-26))
-	else
-		ass:move_to(x(20), y(-30))
-		ass:line_to(x(20), y(30))
-		ass:line_to(x(35), y(30))
-		ass:line_to(x(35), y(-30))
-
-		ass:move_to(x(55), y(-60))
-		ass:line_to(x(55), y(60))
-		ass:line_to(x(70), y(60))
-		ass:line_to(x(70), y(-60))
-	end
-	return ass.text
-end
-
-function icons.volume(pos_x, pos_y, size) return icons._volume(false, pos_x, pos_y, size) end
-
-function icons.volume_muted(pos_x, pos_y, size) return icons._volume(true, pos_x, pos_y, size) end
-
-function icons.menu_button(pos_x, pos_y, size)
-	local ass = assdraw.ass_new()
-	local scale = size / 100
-	local function x(number) return pos_x + (number * scale) end
-	local function y(number) return pos_y + (number * scale) end
-	local line_height = 14
-	local line_spacing = 18
-	for i = -1, 1 do
-		local offs = i * (line_height + line_spacing)
-		ass:move_to(x(-50), y(offs - line_height / 2))
-		ass:line_to(x(50), y(offs - line_height / 2))
-		ass:line_to(x(50), y(offs + line_height / 2))
-		ass:line_to(x(-50), y(offs + line_height / 2))
-	end
-	return ass.text
-end
-
-function icons.arrow_right(pos_x, pos_y, size)
-	local ass = assdraw.ass_new()
-	local scale = size / 200
-	local function x(number) return pos_x + (number * scale) end
-	local function y(number) return pos_y + (number * scale) end
-	ass:move_to(x(-22), y(-80))
-	ass:line_to(x(-45), y(-57))
-	ass:line_to(x(12), y(0))
-	ass:line_to(x(-45), y(57))
-	ass:line_to(x(-22), y(80))
-	ass:line_to(x(58), y(0))
-	return ass.text
-end
-
 -- STATE UPDATES
 
 function update_display_dimensions()
@@ -1516,7 +1504,7 @@ function update_human_times()
 		if state.duration then
 			local speed = state.speed or 1
 			state.duration_or_remaining_time_human = format_time(
-				options.total_time and (state.duration / speed) or ((state.time - state.duration) / speed)
+				options.total_time and state.duration or ((state.time - state.duration) / speed)
 			)
 		else
 			state.duration_or_remaining_time_human = nil
@@ -1547,30 +1535,24 @@ function render_timeline(this)
 	local progress = state.time / state.duration
 	local is_line = options.timeline_style == 'line'
 
-	-- Background bar coordinates
-	local bax = this.ax
-	local bay = this.by - size - this.top_border
-	local bbx = this.bx
-	local bby = this.by
-
-	-- Foreground bar coordinates
-	local fax = 0
-	local fay = bay + this.top_border
-	local fbx = 0
-	local fby = bby
+	-- Foreground & Background bar coordinates
+	local bax, bay, bbx, bby = this.ax, this.by - size - this.top_border, this.bx, this.by
+	local fax, fay, fbx, fby = 0, bay + this.top_border, 0, bby
 
 	-- Controls the padding of time on the timeline due to line width.
-	-- It's a distance of the center of the line when from the side when at the
+	-- It's a distance from the center of the line to its edge when at the
 	-- start or end of the timeline. Effectively half of the line width.
 	local time_padding = 0
 
 	if is_line then
 		local minimized_fraction = 1 - (size - size_min) / (this.size_max - size_min)
 		local width_normal = this:get_effective_line_width()
-		local normal_minimized_delta = width_normal - width_normal * options.timeline_line_width_minimized_scale
-		local line_width = width_normal - (normal_minimized_delta * minimized_fraction)
+		local max_min_width_delta = size_min > 0
+			and width_normal - width_normal * options.timeline_line_width_minimized_scale
+			or 0
+		local line_width = width_normal - (max_min_width_delta * minimized_fraction)
 		local current_time_x = (bbx - bax - line_width) * progress
-		fax = current_time_x
+		fax = current_time_x + bax
 		fbx = fax + line_width
 		if line_width > 2 then time_padding = round(line_width / 2) end
 	else
@@ -1581,26 +1563,22 @@ function render_timeline(this)
 	local time_x = bax + time_padding
 	local time_width = this.width - time_padding * 2
 	local foreground_size = fby - fay
-	local foreground_coordinates = fax .. ',' .. fay .. ',' .. fbx .. ',' .. fby -- for clipping
+	local foreground_coordinates = round(fax) .. ',' .. fay .. ',' .. round(fbx) .. ',' .. fby -- for clipping
 
 	-- Background
 	ass:new_event()
 	ass:pos(0, 0)
-	ass:append('{\\blur0\\bord0\\1c&H' .. options.color_background .. '\\iclip(' .. foreground_coordinates .. ')}')
-	ass:append(ass_opacity(math.max(options.timeline_opacity - 0.1, 0)))
+	ass:append('{\\blur0\\bord0\\1c&H' .. options.color_background .. '}')
+	ass:opacity(math.max(options.timeline_opacity - 0.1, 0))
 	ass:draw_start()
-	ass:rect_cw(bax, bay, bbx, bby)
+	ass:rect_cw(bax, bay, fax, bby) --left of progress
+	ass:rect_cw(fbx, bay, bbx, bby) --right of progress
+	ass:rect_cw(fax, bay, fbx, fay) --above progress
 	ass:draw_stop()
 
 	-- Progress
 	local function render_progress()
-		ass:new_event()
-		ass:append('{\\blur0\\bord0\\1c&H' .. options.color_foreground .. '}')
-		ass:append(ass_opacity(options.timeline_opacity))
-		ass:pos(0, 0)
-		ass:draw_start()
-		ass:rect_cw(fax, fay, fbx, fby)
-		ass:draw_stop()
+		ass:rect(fax, fay, fbx, fby, {opacity = options.timeline_opacity})
 	end
 
 	-- Custom ranges
@@ -1610,18 +1588,10 @@ function render_timeline(this)
 				for i, range in ipairs(chapter_range.ranges) do
 					local rax = time_x + time_width * (range['start'].time / state.duration)
 					local rbx = time_x + time_width * (range['end'].time / state.duration)
-					ass:new_event()
-					ass:append('{\\blur0\\bord0\\1c&H' .. chapter_range.color .. '}')
-					ass:append(ass_opacity(chapter_range.opacity))
-					ass:pos(0, 0)
-					ass:draw_start()
 					-- for 1px chapter size, use the whole size of the bar including padding
-					if size <= 1 then
-						ass:rect_cw(rax, bay, rbx, bby)
-					else
-						ass:rect_cw(rax, fay, rbx, fby)
-					end
-					ass:draw_stop()
+					local ray = size <= 1 and bay or fay
+					local rby = size <= 1 and bby or fby
+					ass:rect(rax, ray, rbx, rby, {color = chapter_range.color, opacity = options.timeline_opacity})
 				end
 			end
 		end
@@ -1665,36 +1635,17 @@ function render_timeline(this)
 			local function draw_chapter(time)
 				local chapter_x = time_x + time_width * (time / state.duration)
 				local color = (fax < chapter_x and chapter_x < fbx) and options.color_background or options.color_foreground
-
-				ass:new_event()
-				ass:append('{\\blur0\\bord0\\1c&H' .. color .. '}')
-				ass:append(ass_opacity(options.timeline_chapters_opacity))
-				ass:pos(0, 0)
-				ass:draw_start()
+				local opts = {color = color, opacity = options.timeline_chapters_opacity}
 
 				if dots then
-					local bezier_stretch = chapter_height * 0.67
-					ass:move_to(chapter_x - chapter_half_height, chapter_y)
-					ass:bezier_curve(
-						chapter_x - chapter_half_height, chapter_y - bezier_stretch,
-						chapter_x + chapter_half_height, chapter_y - bezier_stretch,
-						chapter_x + chapter_half_height, chapter_y
-					)
-					ass:bezier_curve(
-						chapter_x + chapter_half_height, chapter_y + bezier_stretch,
-						chapter_x - chapter_half_height, chapter_y + bezier_stretch,
-						chapter_x - chapter_half_height, chapter_y
-					)
+					ass:circle(chapter_x, chapter_y, chapter_half_height, opts)
 				else
-					ass:rect_cw(
-						round(chapter_x - chapter_half_width),
-						chapter_y - chapter_half_height,
-						round(chapter_x + chapter_half_width),
-						chapter_y + chapter_half_height
+					ass:rect(
+						round(chapter_x - chapter_half_width), chapter_y - chapter_half_height,
+						round(chapter_x + chapter_half_width), chapter_y + chapter_half_height,
+						opts
 					)
 				end
-
-				ass:draw_stop()
 			end
 
 			if state.chapters ~= nil then
@@ -1722,35 +1673,21 @@ function render_timeline(this)
 			local range_ay = fby - range_height
 
 			for _, range in ipairs(state.cached_ranges) do
-				ass:new_event()
-				ass:append('{\\blur0\\bord0\\1c&H' .. options.timeline_cached_ranges.color .. '}')
-				ass:append(ass_opacity(options.timeline_cached_ranges.opacity))
-				ass:pos(0, 0)
-				ass:draw_start()
 				local range_start = math.max(type(range['start']) == 'number' and range['start'] or 0.000001, 0.000001)
 				local range_end = math.min(type(range['end']) and range['end'] or state.duration, state.duration)
-				ass:rect_cw(
+				ass:rect(
 					time_x + time_width * (range_start / state.duration), range_ay,
-					time_x + time_width * (range_end / state.duration), range_ay + range_height
+					time_x + time_width * (range_end / state.duration), range_ay + range_height,
+					{color = options.timeline_cached_ranges.color, opacity = options.timeline_cached_ranges.opacity}
 				)
-				ass:draw_stop()
 			end
 
 			-- Visualize padded time area limits
 			if time_padding > 0 then
 				local notch_ay = math.max(range_ay - 2, fay)
-				ass:new_event()
-				ass:append('{\\blur0\\bord0\\1c&H' .. options.timeline_cached_ranges.color .. '}')
-				ass:pos(0, 0)
-				ass:draw_start()
-				ass:rect_cw(time_x, notch_ay, time_x + 1, bby)
-				ass:draw_stop()
-				ass:new_event()
-				ass:append('{\\blur0\\bord0\\1c&H' .. options.timeline_cached_ranges.color .. '}')
-				ass:pos(0, 0)
-				ass:draw_start()
-				ass:rect_cw(time_x + time_width - 1, notch_ay, time_x + time_width, bby)
-				ass:draw_stop()
+				local opts = {color = options.timeline_cached_ranges.color, opacity = options.timeline_opacity}
+				ass:rect(time_x, notch_ay, time_x + 1, bby, opts)
+				ass:rect(time_x + time_width - 1, notch_ay, time_x + time_width, bby, opts)
 			end
 		end
 	end
@@ -1758,46 +1695,30 @@ function render_timeline(this)
 	-- Time values
 	local function render_time()
 		if text_opacity > 0 then
+			local opts = {size = this.font_size, opacity = math.min(options.timeline_opacity + 0.1, 1) * text_opacity}
+
 			-- Elapsed time
 			if state.time_human then
 				local elapsed_x = bax + spacing
 				local elapsed_y = fay + (size / 2)
-				ass:new_event()
-				ass:append('{\\blur0\\bord0\\shad0\\1c&H' .. options.color_foreground_text .. '\\fn' .. config.font ..
-					'\\fs' .. this.font_size .. bold_tag .. '\\clip(' .. foreground_coordinates .. ')')
-				ass:append(ass_opacity(math.min(options.timeline_opacity + 0.1, 1), text_opacity))
-				ass:pos(elapsed_x, elapsed_y)
-				ass:an(4)
-				ass:append(state.time_human)
-				ass:new_event()
-				ass:append('{\\blur0\\bord0\\shad1\\1c&H' .. options.color_background_text ..
-					'\\4c&H' .. options.color_background .. '\\fn' .. config.font .. '\\fs' .. this.font_size ..
-					bold_tag .. '\\iclip(' .. foreground_coordinates .. ')')
-				ass:append(ass_opacity(math.min(options.timeline_opacity + 0.1, 1), text_opacity))
-				ass:pos(elapsed_x, elapsed_y)
-				ass:an(4)
-				ass:append(state.time_human)
+				opts.color = options.color_foreground_text
+				opts.clip = '\\clip(' .. foreground_coordinates .. ')'
+				ass:txt(elapsed_x, elapsed_y, 4, state.time_human, opts)
+				opts.color = options.color_background_text
+				opts.clip = '\\iclip(' .. foreground_coordinates .. ')'
+				ass:txt(elapsed_x, elapsed_y, 4, state.time_human, opts)
 			end
 
 			-- End time
 			if state.duration_or_remaining_time_human then
 				local end_x = bbx - spacing
 				local end_y = fay + (size / 2)
-				ass:new_event()
-				ass:append('{\\blur0\\bord0\\shad0\\1c&H' .. options.color_foreground_text .. '\\fn' .. config.font ..
-					'\\fs' .. this.font_size .. bold_tag .. '\\clip(' .. foreground_coordinates .. ')')
-				ass:append(ass_opacity(math.min(options.timeline_opacity + 0.1, 1), text_opacity))
-				ass:pos(end_x, end_y)
-				ass:an(6)
-				ass:append(state.duration_or_remaining_time_human)
-				ass:new_event()
-				ass:append('{\\blur0\\bord0\\shad1\\1c&H' .. options.color_background_text ..
-					'\\4c&H' .. options.color_background .. '\\fn' .. config.font .. '\\fs' .. this.font_size ..
-					bold_tag .. '\\iclip(' .. foreground_coordinates .. ')')
-				ass:append(ass_opacity(math.min(options.timeline_opacity + 0.1, 1), text_opacity))
-				ass:pos(end_x, end_y)
-				ass:an(6)
-				ass:append(state.duration_or_remaining_time_human)
+				opts.color = options.color_foreground_text
+				opts.clip = '\\clip(' .. foreground_coordinates .. ')'
+				ass:txt(end_x, end_y, 6, state.duration_or_remaining_time_human, opts)
+				opts.color = options.color_background_text
+				opts.clip = '\\iclip(' .. foreground_coordinates .. ')'
+				ass:txt(end_x, end_y, 6, state.duration_or_remaining_time_human, opts)
 			end
 		end
 	end
@@ -1822,46 +1743,47 @@ function render_timeline(this)
 
 	-- Hovered time and chapter
 	if (this.proximity_raw == 0 or this.pressed) and not (elements.speed and elements.speed.dragging) then
-		local hovered_seconds = state.duration * (cursor.x / display.width)
+		-- add 0.5 to be in the middle of the pixel
+		local hovered_seconds = this:get_time_at_x(cursor.x + 0.5)
 		local chapter_title = ''
 		local chapter_title_width = 0
+
 		if (options.timeline_chapters ~= 'never' and state.chapters) then
 			for i = #state.chapters, 1, -1 do
 				local chapter = state.chapters[i]
 				if hovered_seconds >= chapter.time then
-					chapter_title = chapter.title_wrapped
-					chapter_title_width = chapter.title_wrapped_width
+					if not chapter.is_end_only then
+						chapter_title = chapter.title_wrapped
+						chapter_title_width = chapter.title_wrapped_width
+					end
 					break
 				end
 			end
 		end
+
 		local time_formatted = format_time(hovered_seconds)
 		local margin_time = text_width_estimate(time_formatted, this.font_size) / 2
 		local margin_title = chapter_title_width * this.font_size * options.font_height_to_letter_width_ratio / 2
-		ass:new_event()
-		ass:append('{\\blur0\\bord1\\shad0\\1c&H' .. options.color_background_text ..
-			'\\3c&H' .. options.color_background .. '\\fn' .. config.font .. '\\fs' .. this.font_size .. '\\b1')
-		ass:append(ass_opacity(math.min(options.timeline_opacity + 0.1, 1)))
-		ass:pos(math.min(math.max(cursor.x, margin_title), display.width - margin_title), fay - this.font_size * 1.5)
-		ass:an(2)
-		ass:append(chapter_title)
-		ass:new_event()
-		ass:append('{\\blur0\\bord1\\shad0\\1c&H' .. options.color_background_text ..
-			'\\3c&H' .. options.color_background .. '\\fn' .. config.font .. '\\fs' .. this.font_size .. bold_tag)
-		ass:append(ass_opacity(math.min(options.timeline_opacity + 0.1, 1)))
-		ass:pos(math.min(math.max(cursor.x, margin_time), display.width - margin_time), fay)
-		ass:an(2)
-		ass:append(time_formatted)
+		local opacity = math.min(options.timeline_opacity + 0.1, 1)
+
+		-- Chapter title
+		ass:txt(math.min(math.max(cursor.x, margin_title), display.width - margin_title), fay - this.font_size * 1.3,
+			2, chapter_title, {
+			size = this.font_size, color = options.color_background_text, bold = true,
+			border = 1, border_color = options.color_background, opacity = opacity,
+		})
+		-- Timestamp
+		ass:txt(math.min(math.max(cursor.x, margin_time), display.width - margin_time), fay,
+			2, time_formatted, {
+			size = this.font_size, color = options.color_background_text,
+			border = 1, border_color = options.color_background, opacity = opacity,
+		})
 
 		-- Cursor line
-		ass:new_event()
-		ass:append('{\\blur0\\bord0\\xshad-1\\yshad0\\1c&H' .. options.color_foreground ..
-			'\\4c&H' .. options.color_background .. '}')
-		ass:append(ass_opacity(0.2))
-		ass:pos(0, 0)
-		ass:draw_start()
-		ass:rect_cw(cursor.x, fay, cursor.x + 1, fby)
-		ass:draw_stop()
+		-- 0.5 to switch when the pixel is half filled in
+		local color = ((fax - 0.5) < cursor.x and cursor.x < (fbx + 0.5)) and
+			options.color_background or options.color_foreground
+		ass:rect(cursor.x, fay, cursor.x + 1, fby, {color = color, opacity = 0.2})
 	end
 
 	return ass
@@ -1879,92 +1801,53 @@ function render_top_bar(this)
 		local close = elements.window_controls_close
 		if close.proximity_raw == 0 then
 			-- Background on hover
-			ass:new_event()
-			ass:append('{\\blur0\\bord0\\1c&H2311e8}')
-			ass:append(ass_opacity(this.button_opacity, opacity))
-			ass:pos(0, 0)
-			ass:draw_start()
-			ass:rect_cw(close.ax, close.ay, close.bx, close.by)
-			ass:draw_stop()
+			ass:rect(close.ax, close.ay, close.bx, close.by, {color = '2311e8', opacity = this.button_opacity * opacity})
 		end
-		ass:new_event()
-		ass:append('{\\blur0\\bord1\\shad1\\3c&HFFFFFF\\4c&H000000}')
-		ass:append(ass_opacity(this.button_opacity, opacity))
-		ass:pos(close.ax + (this.button_width / 2), close.ay + (this.size / 2))
-		ass:draw_start()
-		ass:move_to(-this.icon_size, this.icon_size)
-		ass:line_to(this.icon_size, -this.icon_size)
-		ass:move_to(-this.icon_size, -this.icon_size)
-		ass:line_to(this.icon_size, this.icon_size)
-		ass:draw_stop()
+		ass:icon(
+			close.ax + (this.button_width / 2), close.ay + (this.size / 2), this.icon_size, 'close',
+			{opacity = this.button_opacity * opacity, border = 1}
+		)
 
 		-- Maximize button
 		local maximize = elements.window_controls_maximize
 		if maximize.proximity_raw == 0 then
 			-- Background on hover
-			ass:new_event()
-			ass:append('{\\blur0\\bord0\\1c&H222222}')
-			ass:append(ass_opacity(this.button_opacity, opacity))
-			ass:pos(0, 0)
-			ass:draw_start()
-			ass:rect_cw(maximize.ax, maximize.ay, maximize.bx, maximize.by)
-			ass:draw_stop()
+			ass:rect(maximize.ax, maximize.ay, maximize.bx, maximize.by, {
+				color = '222222', opacity = this.button_opacity * opacity,
+			})
 		end
-		ass:new_event()
-		ass:append('{\\blur0\\bord2\\shad0\\1c\\3c&H000000}')
-		ass:append(ass_opacity({[3] = this.button_opacity}, opacity))
-		ass:pos(maximize.ax + (this.button_width / 2), maximize.ay + (this.size / 2))
-		ass:draw_start()
-		ass:rect_cw(-this.icon_size + 1, -this.icon_size + 1, this.icon_size + 1, this.icon_size + 1)
-		ass:draw_stop()
-		ass:new_event()
-		ass:append('{\\blur0\\bord2\\shad0\\1c\\3c&HFFFFFF}')
-		ass:append(ass_opacity({[3] = this.button_opacity}, opacity))
-		ass:pos(maximize.ax + (this.button_width / 2), maximize.ay + (this.size / 2))
-		ass:draw_start()
-		ass:rect_cw(-this.icon_size, -this.icon_size, this.icon_size, this.icon_size)
-		ass:draw_stop()
+		ass:icon(
+			maximize.ax + (this.button_width / 2), maximize.ay + (this.size / 2), this.icon_size,
+			'crop_square', {opacity = this.button_opacity * opacity, border = 1}
+		)
 
 		-- Minimize button
 		local minimize = elements.window_controls_minimize
 		if minimize.proximity_raw == 0 then
 			-- Background on hover
-			ass:new_event()
-			ass:append('{\\blur0\\bord0\\1c&H222222}')
-			ass:append(ass_opacity(this.button_opacity, opacity))
-			ass:pos(0, 0)
-			ass:draw_start()
-			ass:rect_cw(minimize.ax, minimize.ay, minimize.bx, minimize.by)
-			ass:draw_stop()
+			ass:rect(minimize.ax, minimize.ay, minimize.bx, minimize.by, {
+				color = '222222', opacity = this.button_opacity * opacity,
+			})
 		end
-		ass:new_event()
-		ass:append('{\\blur0\\bord1\\shad1\\3c&HFFFFFF\\4c&H000000}')
-		ass:append(ass_opacity(this.button_opacity, opacity))
-		ass:append('{\\1a&HFF&}')
-		ass:pos(minimize.ax + (this.button_width / 2), minimize.ay + (this.size / 2))
-		ass:draw_start()
-		ass:move_to(-this.icon_size, 0)
-		ass:line_to(this.icon_size, 0)
-		ass:draw_stop()
+		ass:icon(
+			minimize.ax + (this.button_width / 2), minimize.ay + (this.size / 2), this.icon_size, 'minimize',
+			{opacity = this.button_opacity * opacity, border = 1}
+		)
 	end
 
 	-- Window title
 	if options.top_bar_title then
 		local clip_coordinates = this.ax .. ',' .. this.ay .. ',' .. (this.title_bx - this.spacing) .. ',' .. this.by
-
-		ass:new_event()
-		ass:append('{\\q2\\blur0\\bord2\\shad0\\1c&HFFFFFF\\3c&H000000\\fn' ..
-			config.font .. '\\fs' .. this.font_size .. bold_tag .. '\\clip(' .. clip_coordinates .. ')')
-		ass:append(ass_opacity(1, opacity))
-		ass:pos(this.ax + this.spacing, this.ay + (this.size / 2))
-		ass:an(4)
-		local title = ""
+		local text = ""
 		if state.media_title then
-			title = mp.command_native({"expand-text", state.media_title})
-			title = title:gsub("\\n", " "):gsub("\\$", ""):gsub("{","\\{")
+			text = mp.command_native({"expand-text", state.media_title})
+			text = text:gsub("\\n", " "):gsub("\\$", ""):gsub("{","\\{")
 		end
-		title = not (title == "") and title or "mpv"
-		ass:append(title)
+		text = not (text == "") and text or "mpv"
+		ass:txt(this.ax + this.spacing, this.ay + (this.size / 2), 4, text, {
+			size = this.font_size, wrap = 2, color = 'FFFFFF', border = 2, border_color = '000000', opacity = opacity,
+			clip = '\\clip(' .. clip_coordinates .. ')',
+		})
 	end
 
 	return ass
@@ -1974,16 +1857,15 @@ function render_volume(this)
 	local slider = elements.volume_slider
 	local opacity = this:get_effective_proximity()
 
-	if this.width == 0 or opacity == 0 or not state.has_audio then return end
+	if this.width == 0 or opacity == 0 then return end
 
 	local ass = assdraw.ass_new()
 
 	if slider.height > 0 then
+		local nudge_y, nudge_size = slider.draw_nudge and slider.nudge_y or -infinity, slider.nudge_size
+
 		-- Background bar coordinates
-		local bax = slider.ax
-		local bay = slider.ay
-		local bbx = slider.bx
-		local bby = slider.by
+		local bax, bay, bbx, bby = slider.ax, slider.ay, slider.bx, slider.by
 
 		-- Foreground bar coordinates
 		local height_without_border = slider.height - (options.volume_border * 2)
@@ -1993,110 +1875,127 @@ function render_volume(this)
 		local fbx = slider.bx - options.volume_border
 		local fby = slider.by - options.volume_border
 
-		-- Path to draw a foreground bar with a 100% volume indicator, already
-		-- clipped by volume level. Can't just clip it with rectangle, as it itself
-		-- also needs to be used as a path to clip the background bar and volume
-		-- number.
-		local fpath = assdraw.ass_new()
-		fpath:move_to(fbx, fby)
-		fpath:line_to(fax, fby)
-		local nudge_bottom_y = slider.nudge_y + slider.nudge_size
-		if fay <= nudge_bottom_y and slider.draw_nudge then
-			fpath:line_to(fax, math.min(nudge_bottom_y))
-			if fay <= slider.nudge_y then
-				fpath:line_to((fax + slider.nudge_size), slider.nudge_y)
-				local nudge_top_y = slider.nudge_y - slider.nudge_size
-				if fay <= nudge_top_y then
-					fpath:line_to(fax, nudge_top_y)
-					fpath:line_to(fax, fay)
-					fpath:line_to(fbx, fay)
-					fpath:line_to(fbx, nudge_top_y)
+		-- Draws a rectangle with nudge at requested position
+		---@param ax number
+		---@param ay number
+		---@param bx number
+		---@param by number
+		function make_nudged_path(ax, ay, bx, by)
+			local fg_path = assdraw.ass_new()
+			fg_path:move_to(bx, by)
+			fg_path:line_to(ax, by)
+			local nudge_bottom_y = nudge_y + nudge_size
+			if ay <= nudge_bottom_y then
+				fg_path:line_to(ax, math.min(nudge_bottom_y))
+				if ay <= nudge_y then
+					fg_path:line_to((ax + nudge_size), nudge_y)
+					local nudge_top_y = nudge_y - nudge_size
+					if ay <= nudge_top_y then
+						fg_path:line_to(ax, nudge_top_y)
+						fg_path:line_to(ax, ay)
+						fg_path:line_to(bx, ay)
+						fg_path:line_to(bx, nudge_top_y)
+					else
+						local triangle_side = ay - nudge_top_y
+						fg_path:line_to((ax + triangle_side), ay)
+						fg_path:line_to((bx - triangle_side), ay)
+					end
+					fg_path:line_to((bx - nudge_size), nudge_y)
 				else
-					local triangle_side = fay - nudge_top_y
-					fpath:line_to((fax + triangle_side), fay)
-					fpath:line_to((fbx - triangle_side), fay)
+					local triangle_side = nudge_bottom_y - ay
+					fg_path:line_to((ax + triangle_side), ay)
+					fg_path:line_to((bx - triangle_side), ay)
 				end
-				fpath:line_to((fbx - slider.nudge_size), slider.nudge_y)
+				fg_path:line_to(bx, nudge_bottom_y)
 			else
-				local triangle_side = nudge_bottom_y - fay
-				fpath:line_to((fax + triangle_side), fay)
-				fpath:line_to((fbx - triangle_side), fay)
+				fg_path:line_to(ax, ay)
+				fg_path:line_to(bx, ay)
 			end
-			fpath:line_to(fbx, nudge_bottom_y)
-		else
-			fpath:line_to(fax, fay)
-			fpath:line_to(fbx, fay)
+			fg_path:line_to(bx, by)
+			return fg_path
 		end
-		fpath:line_to(fbx, fby)
+
+		-- FG & BG paths
+		local fg_path = make_nudged_path(fax, fay, fbx, fby)
+		local bg_path = make_nudged_path(bax, bay, bbx, bby)
 
 		-- Background
-		ass:new_event()
 		ass:append('{\\blur0\\bord0\\1c&H' .. options.color_background ..
-			'\\iclip(' .. fpath.scale .. ', ' .. fpath.text .. ')}')
-		ass:append(ass_opacity(math.max(options.volume_opacity - 0.1, 0), opacity))
+			'\\iclip(' .. fg_path.scale .. ', ' .. fg_path.text .. ')}')
+		ass:opacity(math.max(options.volume_opacity - 0.1, 0), opacity)
 		ass:pos(0, 0)
 		ass:draw_start()
-		ass:move_to(bax, bay)
-		ass:line_to(bbx, bay)
-		local half_border = options.volume_border / 2
-		if slider.draw_nudge then
-			ass:line_to(bbx, math.max(slider.nudge_y - slider.nudge_size + half_border, bay))
-			ass:line_to(bbx - slider.nudge_size + half_border, slider.nudge_y)
-			ass:line_to(bbx, slider.nudge_y + slider.nudge_size - half_border)
-		end
-		ass:line_to(bbx, bby)
-		ass:line_to(bax, bby)
-		if slider.draw_nudge then
-			ass:line_to(bax, slider.nudge_y + slider.nudge_size - half_border)
-			ass:line_to(bax + slider.nudge_size - half_border, slider.nudge_y)
-			ass:line_to(bax, math.max(slider.nudge_y - slider.nudge_size + half_border, bay))
-		end
-		ass:line_to(bax, bay)
+		ass:append(bg_path.text)
 		ass:draw_stop()
 
 		-- Foreground
 		ass:new_event()
 		ass:append('{\\blur0\\bord0\\1c&H' .. options.color_foreground .. '}')
-		ass:append(ass_opacity(options.volume_opacity, opacity))
+		ass:opacity(options.volume_opacity, opacity)
 		ass:pos(0, 0)
 		ass:draw_start()
-		ass:append(fpath.text)
+		ass:append(fg_path.text)
 		ass:draw_stop()
 
 		-- Current volume value
 		local volume_string = tostring(round(state.volume * 10) / 10)
 		local font_size = round(((this.width * 0.6) - (#volume_string * (this.width / 20))) * options.volume_font_scale)
+		local opacity = math.min(options.volume_opacity + 0.1, 1) * opacity
 		if fay < slider.by - slider.spacing then
-			ass:new_event()
-			ass:append('{\\blur0\\bord0\\shad0\\1c&H' .. options.color_foreground_text .. '\\fn' .. config.font ..
-				'\\fs' .. font_size .. bold_tag .. '\\clip(' .. fpath.scale .. ', ' .. fpath.text .. ')}')
-			ass:append(ass_opacity(math.min(options.volume_opacity + 0.1, 1), opacity))
-			ass:pos(slider.ax + (slider.width / 2), slider.by - slider.spacing)
-			ass:an(2)
-			ass:append(volume_string)
+			ass:txt(slider.ax + (slider.width / 2), slider.by - slider.spacing, 2, volume_string, {
+				size = font_size, color = options.color_foreground_text, opacity = opacity,
+				clip = '\\clip(' .. fg_path.scale .. ', ' .. fg_path.text .. ')',
+			})
 		end
 		if fay > slider.by - slider.spacing - font_size then
-			ass:new_event()
-			ass:append('{\\blur0\\bord0\\shad1\\1c&H' .. options.color_background_text ..
-				'\\4c&H' .. options.color_background .. '\\fn' .. config.font .. '\\fs' .. font_size .. bold_tag ..
-				'\\iclip(' .. fpath.scale .. ', ' .. fpath.text .. ')}')
-			ass:append(ass_opacity(math.min(options.volume_opacity + 0.1, 1), opacity))
-			ass:pos(slider.ax + (slider.width / 2), slider.by - slider.spacing)
-			ass:an(2)
-			ass:append(volume_string)
+			ass:txt(slider.ax + (slider.width / 2), slider.by - slider.spacing, 2, volume_string, {
+				size = font_size, color = options.color_background_text, opacity = opacity,
+				clip = '\\iclip(' .. fg_path.scale .. ', ' .. fg_path.text .. ')',
+			})
+		end
+
+		-- Disabled stripes for no audio
+		if not state.has_audio then
+			-- Create 100 foreground clip path
+			local f100ax, f100ay = slider.ax + options.volume_border, slider.ay + options.volume_border
+			local f100bx, f100by = slider.bx - options.volume_border, slider.by - options.volume_border
+			local fg_100_path = make_nudged_path(f100ax, f100ay, f100bx, f100by)
+
+			-- Render stripes
+			local stripe_height = 12
+			local skew_height = stripe_height
+			local colors = {'000000', 'ffffff'}
+
+			for c, color in ipairs(colors) do
+				local stripe_y = slider.ay + stripe_height * (c - 1)
+
+				ass:new_event()
+				ass:append('{\\blur0\\bord0\\shad0\\1c&H' .. color ..
+					'\\clip(' .. fg_100_path.scale .. ',' .. fg_100_path.text .. ')}')
+				ass:opacity(0.15 * opacity)
+				ass:pos(0, 0)
+				ass:draw_start()
+
+				while stripe_y - skew_height < slider.by do
+					ass:move_to(slider.ax, stripe_y)
+					ass:line_to(slider.bx, stripe_y - skew_height)
+					ass:line_to(slider.bx, stripe_y - skew_height + stripe_height)
+					ass:line_to(slider.ax, stripe_y + stripe_height)
+					stripe_y = stripe_y + stripe_height * #colors
+				end
+
+				ass:draw_stop()
+			end
 		end
 	end
 
 	-- Mute button
 	local mute = elements.volume_mute
-	local icon_name = state.mute and 'volume_muted' or 'volume'
-	ass:new_event()
-	ass:append(icon(
-		icon_name,
-		mute.ax + (mute.width / 2), mute.ay + (mute.height / 2), mute.width * 0.7, -- x, y, size
-		0, 0, options.volume_border, -- shadow_x, shadow_y, shadow_size
-		'background', options.volume_opacity * opacity-- backdrop, opacity
-	))
+	local icon_name = state.mute and 'volume_off' or 'volume_up'
+	ass:icon(
+		mute.ax + (mute.width / 2), mute.ay + (mute.height / 2), mute.width * 0.7, icon_name,
+		{border = options.volume_border, opacity = options.volume_opacity * opacity}
+	)
 	return ass
 end
 
@@ -2111,11 +2010,8 @@ function render_speed(this)
 	local ass = assdraw.ass_new()
 
 	-- Coordinates
-	local ax = this.ax
-	-- local ay = this.ay + timeline.size_max - timeline:get_effective_size()
-	local ay = this.ay
-	local bx = this.bx
-	local by = ay + this.height
+	local ax, ay = this.ax, this.ay
+	local bx, by = this.bx, ay + this.height
 	local half_width = (this.width / 2)
 	local half_x = ax + half_width
 
@@ -2148,23 +2044,17 @@ function render_speed(this)
 				notch_ay = notch_ay_medium
 			end
 
-			ass:new_event()
-			ass:append('{\\blur0\\bord1\\shad0\\1c&HFFFFFF\\3c&H000000}')
-			ass:append(ass_opacity(math.min(1.2 - (math.abs((notch_x - ax - half_width) / half_width)), 1), opacity))
-			ass:pos(0, 0)
-			ass:draw_start()
-			ass:move_to(notch_x - notch_thickness, notch_ay)
-			ass:line_to(notch_x + notch_thickness, notch_ay)
-			ass:line_to(notch_x + notch_thickness, notch_by)
-			ass:line_to(notch_x - notch_thickness, notch_by)
-			ass:draw_stop()
+			ass:rect(notch_x - notch_thickness, notch_ay, notch_x + notch_thickness, notch_by, {
+				color = options.color_foreground, border = 1, border_color = options.color_background,
+				opacity = math.min(1.2 - (math.abs((notch_x - ax - half_width) / half_width)), 1) * opacity,
+			})
 		end
 	end
 
 	-- Center guide
 	ass:new_event()
-	ass:append('{\\blur0\\bord1\\shad0\\1c&HFFFFFF\\3c&H000000}')
-	ass:append(ass_opacity(options.speed_opacity, opacity))
+	ass:append('{\\blur0\\bord1\\shad0\\1c&H' .. options.color_foreground .. '\\3c&H' .. options.color_background .. '}')
+	ass:opacity(options.speed_opacity, opacity)
 	ass:pos(0, 0)
 	ass:draw_start()
 	ass:move_to(half_x, by - 2 - guide_size)
@@ -2174,13 +2064,10 @@ function render_speed(this)
 
 	-- Speed value
 	local speed_text = (round(state.speed * 100) / 100) .. 'x'
-	ass:new_event()
-	ass:append('{\\blur0\\bord1\\shad0\\1c&H' .. options.color_background_text ..
-		'\\3c&H' .. options.color_background .. '\\fn' .. config.font .. '\\fs' .. this.font_size .. bold_tag .. '}')
-	ass:append(ass_opacity(options.speed_opacity, opacity))
-	ass:pos(half_x, ay)
-	ass:an(8)
-	ass:append(speed_text)
+	ass:txt(half_x, ay, 8, speed_text, {
+		size = this.font_size, color = options.color_background_text,
+		border = 1, border_color = options.color_background, opacity = opacity,
+	})
 
 	return ass
 end
@@ -2195,13 +2082,10 @@ function render_menu_button(this)
 	local ass = assdraw.ass_new()
 	-- Menu button
 	local burger = elements.menu_button
-	ass:new_event()
-	ass:append(icon(
-		'menu_button',
-		burger.ax + (burger.width / 2), burger.ay + (burger.height / 2), burger.width, -- x, y, size
-		0, 0, options.menu_button_border, -- shadow_x, shadow_y, shadow_size
-		'background', options.menu_button_opacity * opacity-- backdrop, opacity
-	))
+	ass:icon(
+		burger.ax + (burger.width / 2), burger.ay + (burger.height / 2), burger.width, 'menu',
+		{border = options.menu_button_border, opacity = options.menu_button_opacity * opacity}
+	)
 	return ass
 end
 
@@ -2212,26 +2096,22 @@ function render_menu(this)
 		ass:merge(this.parent_menu:render())
 	end
 
+	local opacity = options.menu_opacity * this.opacity
+	local spacing = this.item_content_spacing
+
 	-- Menu title
 	if this.title then
 		-- Background
-		ass:new_event()
-		ass:append('{\\blur0\\bord0\\1c&H' .. options.color_background .. '}')
-		ass:append(ass_opacity(options.menu_opacity, this.opacity))
-		ass:pos(0, 0)
-		ass:draw_start()
-		ass:rect_cw(this.ax, this.ay - this.item_height, this.bx, this.ay - 1)
-		ass:draw_stop()
+		ass:rect(this.ax, this.ay - this.item_height, this.bx, this.ay - 1, {
+			color = options.color_background, opacity = opacity,
+		})
 
 		-- Title
-		ass:new_event()
-		ass:append('{\\blur0\\bord0\\shad1\\b1\\1c&H' .. options.color_background_text ..
-			'\\4c&H' .. options.color_background .. '\\fn' .. config.font .. '\\fs' .. this.font_size ..
-			'\\q2\\clip(' .. this.ax .. ',' .. this.ay - this.item_height .. ',' .. this.bx .. ',' .. this.ay .. ')}')
-		ass:append(ass_opacity(options.menu_opacity, this.opacity))
-		ass:pos(this.ax + this.width / 2, this.ay - (this.item_height * 0.5))
-		ass:an(5)
-		ass:append(this.title)
+		ass:txt(this.ax + this.width / 2, this.ay - (this.item_height * 0.5), 5, this.title, {
+			size = this.font_size, bold = true, color = options.color_background_text,
+			shadow = 1, shadow_color = options.color_background, wrap = 2, opacity = opacity,
+			clip = '\\clip(' .. this.ax .. ',' .. this.ay - this.item_height .. ',' .. this.bx .. ',' .. this.ay .. ')',
+		})
 	end
 
 	local scroll_area_clip = '\\clip(' .. this.ax .. ',' .. this.ay .. ',' .. this.bx .. ',' .. this.by .. ')'
@@ -2239,7 +2119,7 @@ function render_menu(this)
 	for index, item in ipairs(this.items) do
 		local item_ay = this.ay - this.scroll_y + (this.item_height * (index - 1) + this.item_spacing * (index - 1))
 		local item_by = item_ay + this.item_height
-		local item_clip = ''
+		local item_clip = nil
 
 		if item_by >= this.ay and item_ay <= this.by then
 			-- Clip items overflowing scroll area
@@ -2248,82 +2128,66 @@ function render_menu(this)
 			end
 
 			local is_active = this.active_index == index
-			local font_color, background_color, ass_shadow, ass_shadow_color
+			local font_color, background_color, shadow, shadow_color
 			local icon_size = this.font_size
+			local item_center_y = item_ay + (this.item_height / 2)
 
 			if is_active then
 				font_color, background_color = options.color_foreground_text, options.color_foreground
-				ass_shadow, ass_shadow_color = '\\shad0', ''
+				shadow, shadow_color = 0, ''
 			else
 				font_color, background_color = options.color_background_text, options.color_background
-				ass_shadow, ass_shadow_color = '\\shad1', '\\4c&H' .. background_color
+				shadow, shadow_color = 1, '\\4c&H' .. background_color
 			end
 
 			local has_submenu = item.items ~= nil
-			local hint_width = 0
+			-- controls title & hint clipping proportional to the ratio of their widths
+			local title_hint_ratio = 1
 			if item.hint then
-				hint_width = text_width_estimate(item.hint, this.font_size_hint)
+				title_hint_ratio = item.title_width / (item.title_width + item.hint_width)
 			elseif has_submenu then
-				hint_width = icon_size
+				title_hint_ratio = item.title_width / (item.title_width + icon_size)
 			end
+			local title_hint_spacing = (title_hint_ratio == 1 or title_hint_ratio == 0) and 0 or spacing / 2
 
 			-- Background
-			ass:new_event()
-			ass:append('{\\blur0\\bord0\\1c&H' .. background_color .. item_clip .. '}')
-			ass:append(ass_opacity(options.menu_opacity, this.opacity))
-			ass:pos(0, 0)
-			ass:draw_start()
-			ass:rect_cw(this.ax, item_ay, this.bx, item_by)
-			ass:draw_stop()
+			ass:rect(this.ax, item_ay, this.bx, item_by, {color = background_color, clip = item_clip, opacity = opacity})
 
 			-- Selected highlight
 			if this.selected_index == index then
-				ass:new_event()
-				ass:append('{\\blur0\\bord0\\1c&H' .. options.color_foreground .. item_clip .. '}')
-				ass:append(ass_opacity(0.1, this.opacity))
-				ass:pos(0, 0)
-				ass:draw_start()
-				ass:rect_cw(this.ax, item_ay, this.bx, item_by)
-				ass:draw_stop()
+				ass:rect(this.ax, item_ay, this.bx, item_by, {
+					color = options.color_foreground, clip = item_clip, opacity = 0.1 * this.opacity,
+				})
 			end
 
 			-- Title
+			local title_x = this.ax + spacing
+			local title_hint_cut_x = title_x + (this.width - spacing * 2) * title_hint_ratio
 			if item.title then
 				item.ass_save_title = item.ass_save_title or item.title:gsub('([{}])', '\\%1')
-				local title_clip_x = (this.bx - hint_width - this.item_content_spacing)
-				local title_clip = '\\clip(' ..
-					this.ax .. ',' .. math.max(item_ay, this.ay) .. ',' ..
-					title_clip_x .. ',' .. math.min(item_by, this.by) .. ')'
-				ass:new_event()
-				ass:append('{\\blur0\\bord0\\shad1\\1c&H' .. font_color .. '\\4c&H' .. background_color ..
-					'\\fn' .. config.font .. '\\fs' .. this.font_size .. bold_tag .. title_clip .. '\\q2}')
-				ass:append(ass_opacity(options.menu_opacity, this.opacity))
-				ass:pos(this.ax + this.item_content_spacing, item_ay + (this.item_height / 2))
-				ass:an(4)
-				ass:append(item.ass_save_title)
+				local clip = '\\clip(' .. this.ax .. ',' .. math.max(item_ay, this.ay) .. ','
+					.. round(title_hint_cut_x - title_hint_spacing / 2) .. ',' .. math.min(item_by, this.by) .. ')'
+				ass:txt(title_x, item_center_y, 4, item.ass_save_title, {
+					size = this.font_size, color = font_color, shadow = 1, shadow_color = background_color, wrap = 2,
+					opacity = this.opacity, clip = clip,
+				})
 			end
 
 			-- Hint
+			local hint_x = this.bx - spacing
 			if item.hint then
 				item.ass_save_hint = item.ass_save_hint or item.hint:gsub('([{}])', '\\%1')
-				ass:new_event()
-				ass:append('{\\blur0\\bord0' .. ass_shadow .. '\\1c&H' .. font_color .. '' .. ass_shadow_color ..
-					'\\fn' .. config.font .. '\\fs' .. this.font_size_hint .. bold_tag .. item_clip .. '}')
-				ass:append(ass_opacity(options.menu_opacity * (has_submenu and 1 or 0.5), this.opacity))
-				ass:pos(this.bx - this.item_content_spacing, item_ay + (this.item_height / 2))
-				ass:an(6)
-				ass:append(item.ass_save_hint)
+				local clip = '\\clip(' .. round(title_hint_cut_x + title_hint_spacing / 2) .. ',' ..
+					math.max(item_ay, this.ay) .. ',' .. this.bx .. ',' .. math.min(item_by, this.by) .. ')'
+				ass:txt(hint_x, item_center_y, 6, item.ass_save_hint, {
+					size = this.font_size_hint, color = font_color, shadow = shadow, shadow_color = shadow_color,
+					wrap = 2, opacity = (has_submenu and 1 or 0.5) * this.opacity, clip = clip,
+				})
 			elseif has_submenu then
-				ass:new_event()
-				ass:append(icon(
-					'arrow_right',
-					this.bx - this.item_content_spacing - (icon_size / 2), -- x
-					item_ay + (this.item_height / 2), -- y
-					icon_size, -- size
-					0, 0, 1, -- shadow_x, shadow_y, shadow_size
-					is_active and 'foreground' or 'background', this.opacity, -- backdrop, opacity
-					item_clip
-				))
+				ass:icon(hint_x - (icon_size / 2), item_center_y, icon_size * 1.5, 'chevron_right', {
+					color = is_active and options.color_background or options.color_foreground,
+					border = 0, opacity = this.opacity, clip = item_clip,
+				})
 			end
 		end
 	end
@@ -2333,13 +2197,9 @@ function render_menu(this)
 		local groove_height = this.height - 2
 		local thumb_height = math.max((this.height / (this.scroll_height + this.height)) * groove_height, 40)
 		local thumb_y = this.ay + 1 + ((this.scroll_y / this.scroll_height) * (groove_height - thumb_height))
-		ass:new_event()
-		ass:append('{\\blur0\\bord0\\1c&H' .. options.color_foreground .. '}')
-		ass:append(ass_opacity(options.menu_opacity, this.opacity * 0.8))
-		ass:pos(0, 0)
-		ass:draw_start()
-		ass:rect_cw(this.bx - 3, thumb_y, this.bx - 1, thumb_y + thumb_height)
-		ass:draw_stop()
+		ass:rect(this.bx - 3, thumb_y, this.bx - 1, thumb_y + thumb_height, {
+			color = options.color_foreground, opacity = options.menu_opacity * this.opacity * 0.8,
+		})
 	end
 
 	return ass
@@ -2408,15 +2268,11 @@ elements:add('window_border', Element.new({
 	render = function(this)
 		if this.size > 0 then
 			local ass = assdraw.ass_new()
-			local clip_coordinates = this.size ..
-				',' .. this.size .. ',' .. (display.width - this.size) .. ',' .. (display.height - this.size)
-			ass:new_event()
-			ass:append('{\\blur0\\bord0\\1c&H' .. options.color_background .. '\\iclip(' .. clip_coordinates .. ')}')
-			ass:append(ass_opacity(options.window_border_opacity))
-			ass:pos(0, 0)
-			ass:draw_start()
-			ass:rect_cw(0, 0, display.width, display.height)
-			ass:draw_stop()
+			local clip = '\\iclip(' .. this.size .. ',' .. this.size .. ',' ..
+				(display.width - this.size) .. ',' .. (display.height - this.size) .. ')'
+			ass:rect(0, 0, display.width, display.height, {
+				color = options.color_background, clip = clip, opacity = options.window_border_opacity,
+			})
 			return ass
 		end
 	end,
@@ -2469,46 +2325,26 @@ elements:add('pause_indicator', Element.new({
 
 		-- Background fadeout
 		if is_static then
-			ass:new_event()
-			ass:append('{\\blur0\\bord0\\1c&H' .. options.color_background .. '}')
-			ass:append(ass_opacity(0.3, this.opacity))
-			ass:pos(0, 0)
-			ass:draw_start()
-			ass:rect_cw(0, 0, display.width, display.height)
-			ass:draw_stop()
+			ass:rect(0, 0, display.width, display.height, {
+				color = options.color_background, opacity = this.opacity * 0.3,
+			})
 		end
 
 		-- Icon
-		local size = round((math.min(display.width, display.height) * 0.075) / 2)
+		local size = round(math.min(display.width, display.height) * 0.075)
 
 		size = size + size * (1 - this.opacity)
 
 		if this.paused then
-			ass:new_event()
-			ass:append('{\\blur0\\bord1\\1c&H' .. options.color_foreground .. '\\3c&H' .. options.color_background .. '}')
-			ass:append(ass_opacity(this.base_icon_opacity, this.opacity))
-			ass:pos(display.width / 2, display.height / 2)
-			ass:draw_start()
-			ass:rect_cw(-size, -size, -size / 3, size)
-			ass:draw_stop()
-
-			ass:new_event()
-			ass:append('{\\blur0\\bord1\\1c&H' .. options.color_foreground .. '\\3c&H' .. options.color_background .. '}')
-			ass:append(ass_opacity(this.base_icon_opacity, this.opacity))
-			ass:pos(display.width / 2, display.height / 2)
-			ass:draw_start()
-			ass:rect_cw(size / 3, -size, size, size)
-			ass:draw_stop()
+			ass:icon(
+				display.width / 2, display.height / 2, size, 'pause',
+				{border = 1, opacity = this.base_icon_opacity * this.opacity}
+			)
 		else
-			ass:new_event()
-			ass:append('{\\blur0\\bord1\\1c&H' .. options.color_foreground .. '\\3c&H' .. options.color_background .. '}')
-			ass:append(ass_opacity(this.base_icon_opacity, this.opacity))
-			ass:pos(display.width / 2, display.height / 2)
-			ass:draw_start()
-			ass:move_to(-size * 0.6, -size)
-			ass:line_to(size, 0)
-			ass:line_to(-size * 0.6, size)
-			ass:draw_stop()
+			ass:icon(
+				display.width / 2, display.height / 2, size * 1.2, 'play_arrow',
+				{border = 1, opacity = this.base_icon_opacity * this.opacity}
+			)
 		end
 
 		return ass
@@ -2555,11 +2391,15 @@ elements:add('timeline', Element.new({
 	on_prop_border = function(this) this:update_dimensions() end,
 	on_prop_fullormaxed = function(this) this:update_dimensions() end,
 	on_display_change = function(this) this:update_dimensions() end,
-	set_from_cursor = function(this)
+	get_time_at_x = function(this, x)
 		-- padding serves the purpose of matching cursor to timeline_style=line exactly
 		local padding = (options.timeline_style == 'line' and this:get_effective_line_width() or 0) / 2
-		local progress = math.max(0, math.min((cursor.x - this.ax - padding) / (this.width - padding * 2), 1))
-		mp.commandv('seek', (progress * 100), 'absolute-percent+exact')
+		local progress = math.max(0, math.min((x - this.ax - padding) / (this.width - padding * 2), 1))
+		return state.duration * progress
+	end,
+	set_from_cursor = function(this)
+		-- add 0.5 to be in the middle of the pixel
+		mp.commandv('seek', this:get_time_at_x(cursor.x + 0.5), 'absolute+exact')
 	end,
 	on_mbtn_left_down = function(this)
 		this.pressed = true
@@ -2608,7 +2448,7 @@ elements:add('top_bar', Element.new({
 	end,
 	update_dimensions = function(this)
 		this.size = state.fullormaxed and options.top_bar_size_fullscreen or options.top_bar_size
-		this.icon_size = round(this.size / 8)
+		this.icon_size = round(this.size * 0.5)
 		this.spacing = math.ceil(this.size * 0.25)
 		this.font_size = math.floor(this.size - (this.spacing * 1.8))
 		this.button_width = round(this.size * 1.15)
@@ -2699,27 +2539,23 @@ if itable_find({'left', 'right'}, options.volume) then
 			this.by = round(this.ay + this.height)
 		end,
 		on_display_change = function(this) this:update_dimensions() end,
-		on_prop_has_audio = function(this, has_audio) this.enabled = has_audio end,
 		on_prop_border = function(this) this:update_dimensions() end,
 		render = render_volume,
 	}))
 	elements:add('volume_mute', Element.new({
-		enabled = false,
+		enabled = true,
 		width = 0,
 		height = 0,
 		on_display_change = function(this)
 			this.width = elements.volume.width
 			this.height = this.width
-			this.ax = elements.volume.ax
-			this.ay = elements.volume.by - this.height
-			this.bx = elements.volume.bx
-			this.by = elements.volume.by
+			this.ax, this.ay = elements.volume.ax, elements.volume.by - this.height
+			this.bx, this.by = elements.volume.bx, elements.volume.by
 		end,
-		on_prop_has_audio = function(this, has_audio) this.enabled = has_audio end,
 		on_mbtn_left_down = function(this) mp.commandv('cycle', 'mute') end,
 	}))
 	elements:add('volume_slider', Element.new({
-		enabled = false,
+		enabled = true,
 		pressed = false,
 		width = 0,
 		height = 0,
@@ -2729,24 +2565,23 @@ if itable_find({'left', 'right'}, options.volume) then
 		spacing = nil,
 		on_display_change = function(this)
 			if state.volume_max == nil or state.volume_max == 0 then return end
-			this.ax = elements.volume.ax
-			this.ay = elements.volume.ay
-			this.bx = elements.volume.bx
-			this.by = elements.volume_mute.ay
-			this.width = this.bx - this.ax
-			this.height = this.by - this.ay
+			this.ax, this.ay = elements.volume.ax, elements.volume.ay
+			this.bx, this.by = elements.volume.bx, elements.volume_mute.ay
+			this.width, this.height = this.bx - this.ax, this.by - this.ay
 			this.nudge_y = this.by - round(this.height * (100 / state.volume_max))
 			this.nudge_size = round(elements.volume.width * 0.18)
 			this.draw_nudge = this.ay < this.nudge_y
 			this.spacing = round(this.width * 0.2)
 		end,
+		set_volume = function(this, volume)
+			volume = round(volume / options.volume_step) * options.volume_step
+			if state.volume == volume then return end
+			mp.commandv('set', 'volume', math.max(math.min(volume, state.volume_max), 0))
+		end,
 		set_from_cursor = function(this)
 			local volume_fraction = (this.by - cursor.y - options.volume_border) / (this.height - options.volume_border)
-			local new_volume = math.min(math.max(volume_fraction, 0), 1) * state.volume_max
-			new_volume = round(new_volume / options.volume_step) * options.volume_step
-			if state.volume ~= new_volume then mp.commandv('set', 'volume', math.min(new_volume, state.volume_max)) end
+			this:set_volume(volume_fraction * state.volume_max)
 		end,
-		on_prop_has_audio = function(this, has_audio) this.enabled = has_audio end,
 		on_mbtn_left_down = function(this)
 			this.pressed = true
 			this:set_from_cursor()
@@ -2756,14 +2591,8 @@ if itable_find({'left', 'right'}, options.volume) then
 		on_global_mouse_move = function(this)
 			if this.pressed then this:set_from_cursor() end
 		end,
-		on_wheel_up = function(this)
-			local current_rounded_volume = round(state.volume / options.volume_step) * options.volume_step
-			mp.commandv('set', 'volume', math.min(current_rounded_volume + options.volume_step, state.volume_max))
-		end,
-		on_wheel_down = function(this)
-			local current_rounded_volume = round(state.volume / options.volume_step) * options.volume_step
-			mp.commandv('set', 'volume', math.min(current_rounded_volume - options.volume_step, state.volume_max))
-		end,
+		on_wheel_up = function(this) this:set_volume(state.volume + options.volume_step) end,
+		on_wheel_down = function(this) this:set_volume(state.volume - options.volume_step) end,
 	}))
 end
 if itable_find({'center', 'bottom-bar'}, options.menu_button) then
@@ -2786,16 +2615,13 @@ if itable_find({'center', 'bottom-bar'}, options.menu_button) then
 			this.height = this.width
 
 			if options.menu_button == 'bottom-bar' then
-				this.ax = 15
-				this.bx = this.ax + this.width
+				this.ax, this.bx = 15, this.ax + this.width
 				this.by = display.height - 10 - elements.window_border.size - elements.timeline.size_max -
 					elements.timeline.top_border
 				this.ay = this.by - this.height
 			else
-				this.ax = round((display.width - this.width) / 2)
-				this.ay = round((display.height - this.height) / 2)
-				this.bx = this.ax + this.width
-				this.by = this.ay + this.height
+				this.ax, this.ay = round((display.width - this.width) / 2), round((display.height - this.height) / 2)
+				this.bx, this.by = this.ax + this.width, this.ay + this.height
 			end
 		end,
 		on_display_change = function(this) this:update_dimensions() end,
@@ -2848,16 +2674,11 @@ if options.speed then
 			this.width = round(this.height * 3.6)
 			this.notch_spacing = this.width / this.notches
 			this.ax = (display.width - this.width) / 2
-			this.by = display.height - elements.window_border.size - elements.timeline.size_max - elements.timeline.top_border
+			this.by = display.height - elements.window_border.size - elements.timeline.size_max -
+				elements.timeline.top_border - 2
 			this.ay = this.by - this.height
 			this.bx = this.ax + this.width
 			this.font_size = round(this.height * 0.48 * options.speed_font_scale)
-		end,
-		set_from_cursor = function(this)
-			local volume_fraction = (this.by - cursor.y - options.volume_border) / (this.height - options.volume_border)
-			local new_volume = math.min(math.max(volume_fraction, 0), 1) * state.volume_max
-			new_volume = round(new_volume / options.volume_step) * options.volume_step
-			if state.volume ~= new_volume then mp.commandv('set', 'volume', new_volume) end
 		end,
 		on_prop_time = function(this, time) this.enabled = time ~= nil end,
 		on_prop_border = function(this) this:update_dimensions() end,
@@ -2936,13 +2757,9 @@ elements:add('curtain', Element.new({
 	render = function(this)
 		if this.opacity > 0 and options.curtain_opacity > 0 then
 			local ass = assdraw.ass_new()
-			ass:new_event()
-			ass:append('{\\blur0\\bord0\\1c&H' .. options.color_background .. '}')
-			ass:append(ass_opacity(options.curtain_opacity, this.opacity))
-			ass:pos(0, 0)
-			ass:draw_start()
-			ass:rect_cw(0, 0, display.width, display.height)
-			ass:draw_stop()
+			ass:rect(0, 0, display.width, display.height, {
+				color = options.color_background, opacity = options.curtain_opacity * this.opacity,
+			})
 			return ass
 		end
 	end,
@@ -3005,34 +2822,33 @@ for _, definition in ipairs(split(options.chapter_ranges, ' *,+ *')) do
 			for _, chapter in ipairs(chapters) do
 				if type(chapter.title) == 'string' then
 					local lowercase_title = chapter.title:lower()
-					local is_end = false
-					local is_start = false
 
 					-- Is ending check and handling
 					if chapter_range.end_patterns then
+						chapter.is_end_only = false
 						for _, end_pattern in ipairs(chapter_range.end_patterns) do
-							is_end = is_end or lowercase_title:find(end_pattern) ~= nil
-						end
-
-						if is_end then
-							if current_range == nil and uses_bof and not bof_used then
-								bof_used = true
-								start_range({time = 0})
-							end
-							if current_range ~= nil then
-								end_range(chapter)
-							else
-								is_end = false
+							if lowercase_title:find(end_pattern) then
+								if current_range == nil and uses_bof and not bof_used then
+									bof_used = true
+									start_range({time = 0})
+								end
+								if current_range ~= nil then
+									end_range(chapter)
+								end
+								chapter.is_end_only = end_pattern ~= '.*'
+								break
 							end
 						end
 					end
 
 					-- Is start check and handling
 					for _, start_pattern in ipairs(chapter_range.start_patterns) do
-						is_start = is_start or lowercase_title:find(start_pattern) ~= nil
+						if lowercase_title:find(start_pattern) then
+							start_range(chapter)
+							chapter.is_end_only = false
+							break
+						end
 					end
-
-					if is_start then start_range(chapter) end
 				end
 			end
 
@@ -3579,10 +3395,8 @@ mp.observe_property('playback-time', 'number', create_state_setter('time', updat
 mp.observe_property('duration', 'number', create_state_setter('duration', update_human_times))
 mp.observe_property('speed', 'number', create_state_setter('speed', update_human_times))
 mp.observe_property('track-list', 'native', function(name, value)
-	-- checks if the file is audio only (mp3, etc)
-	local has_audio = false
-	local has_video = false
-	local is_image = false
+	-- checks the file dispositions
+	local has_audio, has_video, is_image = false, false, false
 	for _, track in ipairs(value) do
 		if track.type == 'audio' then has_audio = true end
 		if track.type == 'video' then
@@ -3714,9 +3528,9 @@ mp.register_script_message('get-version', function(script)
 	mp.commandv('script-message-to', script, 'uosc-version', state.version)
 end)
 mp.register_script_message('show-menu', function(json)
-	local menu = utils.parse_json(json)
+	local menu_config = utils.parse_json(json)
 
-	if type(menu) ~= 'table' or type(menu.items) ~= 'table' then
+	if type(menu_config) ~= 'table' or type(menu_config.items) ~= 'table' then
 		msg.error('show-menu: received json didn\'t produce a table with menu configuration')
 		return
 	end
@@ -3725,20 +3539,21 @@ mp.register_script_message('show-menu', function(json)
 		if type(value) == 'string' then
 			mp.command(value)
 		else
-			mp.commandv(table.unpack(value))
+			---@diagnostic disable-next-line: deprecated
+			mp.commandv((unpack or table.unpack)(value))
 		end
 	end
 
-	if menu.type ~= nil and menu:is_open(menu.type) then
+	if menu_config.type ~= nil and menu:is_open(menu_config.type) then
 		menu:close()
 		return
 	end
 
-	Menu:open(menu.items, run_command, {
-		type = menu.type,
-		title = menu.title,
-		selected_index = menu.selected_index or menu.active_index or (#menu.items > 0 and 1 or nil),
-		active_index = menu.active_index,
+	Menu:open(menu_config.items, run_command, {
+		type = menu_config.type,
+		title = menu_config.title,
+		selected_index = menu_config.selected_index or menu_config.active_index or (#menu_config.items > 0 and 1 or nil),
+		active_index = menu_config.active_index,
 	})
 end)
 mp.register_script_message('show-submenu', function(name)
