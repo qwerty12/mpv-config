@@ -95,7 +95,7 @@ def auth(flags, configs):
         })
 
         if res.status_code != 200:
-            sys.exit(-1)
+            res.raise_for_status()
 
         configs['user_slug'] = res.json()['user']['ids']['slug']
         write_json(configs)
@@ -159,7 +159,7 @@ def __query_search_ep(name, season, ep, session, timestamp):
     )
 
     if res.status_code != 200:
-        sys.exit(-1)
+        res.raise_for_status()
 
     if len(res.json()) == 0:
         sys.exit(14)
@@ -175,7 +175,7 @@ def __query_search_ep(name, season, ep, session, timestamp):
     )
 
     if res.status_code != 200:
-        sys.exit(-1)
+        res.raise_for_status()
 
     ids = res.json()["ids"]
 
@@ -183,7 +183,7 @@ def __query_search_ep(name, season, ep, session, timestamp):
         watched_history = session.get('https://api.trakt.tv/sync/history/episodes/' + str(ids["trakt"]))
 
         if watched_history.status_code != 200:
-            sys.exit(-1)
+            res.raise_for_status()
 
         if watched_history.json():
             print(f"{show_title} S{season}E{ep} already marked as watched, won't add duplicate", end='')
@@ -207,7 +207,7 @@ def __query_movie(movie, year, session, timestamp):
     )
 
     if res.status_code != 200:
-        sys.exit(-1)
+        res.raise_for_status()
 
     show_title = res.json()[0]['movie']['title']
     # show_slug = res.json()[0]['movie']['ids']['slug']
@@ -228,7 +228,7 @@ def __query_movie(movie, year, session, timestamp):
         watched_history = session.get('https://api.trakt.tv/sync/history/movies/' + str(show_trakt_id))
 
         if watched_history.status_code != 200:
-            sys.exit(-1)
+            watched_history.raise_for_status()
 
         if watched_history.json():
             print(f"{show_title} already marked as watched, won't add duplicate", end='')
@@ -277,7 +277,7 @@ def checkin(session, body, msg_on_success=None):
     )
 
     if res.status_code != 201:
-        sys.exit(-1)
+        res.raise_for_status()
 
     if msg_on_success is not None:
         print(msg_on_success, end='')
