@@ -150,21 +150,15 @@ Case for `(flash/decide)-pause-indicator`: mpv handles frame stepping forward by
 
 Toggles menu. Menu is empty by default and won't show up when this is pressed. Read [Menu](#menu-1) section below to find out how to fill it up with items you want there.
 
-#### `load-subtitles`
+#### `subtitles`, `audio`, `video`
 
-Displays a file explorer with directory navigation to load external subtitles. Explorer only displays file types defined in `subtitle_types` option.
+Menus to select a track of a requested type.
 
-#### `subtitles`
+#### `load-subtitles`, `load-audio`, `load-video`
 
-Menu to select a subtitle track.
+Displays a file explorer with directory navigation to load a requested track type.
 
-#### `audio`
-
-Menu to select an audio track.
-
-#### `video`
-
-Menu to select a video track.
+For subtitles, explorer only displays file types defined in `subtitle_types` option.
 
 #### `playlist`
 
@@ -181,6 +175,10 @@ Switch stream quality. This is just a basic re-assignment of `ytdl-format` mpv p
 #### `open-file`
 
 Open file menu. Browsing starts in current file directory, or user directory when file not available.
+
+#### `items`
+
+Opens `playlist` menu when playlist exists, or `open-file` menu otherwise.
 
 #### `next`
 
@@ -377,24 +375,27 @@ Menu data structure:
 
 ```
 Menu {
-    type: string | nil;
-    title: string | nil;
-    selected_index: number | nil;
-    active_index: number | nil;
+    type?: string;
+    title?: string;
+    selected_index?: number;
+    active_index?: number;
     items: Item[];
 }
 
 Submenu {
-    title: string | nil;
+    title?: string;
     items: Item[];
 }
 
 Item = Command | Submenu;
 
 Command {
-    title: string | nil;
-    hint: string | nil;
+    title?: string;
+    hint?: string;
     value: string | string[];
+    bold?: boolean;
+    italic?: boolean;
+    muted?: boolean;
 }
 ```
 
