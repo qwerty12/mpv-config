@@ -1,4 +1,4 @@
--- https://github.com/mpv-player/mpv/blob/master/TOOLS/lua/autoload.lua @ ee2762924412211bcac76e3aaae07e880fd284a8
+-- https://github.com/mpv-player/mpv/blob/master/TOOLS/lua/autoload.lua @ 56e24d535ebf8c67d14a3e6059aa16c8e6e84a7c
 -- This script automatically loads playlist entries before and after the
 -- the currently played file. It does so by scanning the directory a file is
 -- located in when starting playback. It sorts the directory entries
@@ -20,7 +20,6 @@ audio=yes
 ignore_hidden=yes
 
 --]]
-
 
 MAXENTRIES = 5000
 
@@ -51,15 +50,19 @@ function SetUnion (a,b)
 end
 
 EXTENSIONS_VIDEO = Set {
-    'mkv', 'avi', 'mp4', 'ogv', 'webm', 'rmvb', 'flv', 'wmv', 'mpeg', 'mpg', 'm4v', '3gp', 'mov', 'ts', 'vob', 'divx', 'asf'
+    '3g2', '3gp', 'asf', 'avi', 'divx', 'flv', 'm2ts', 'm4v', 'mj2',
+    'mkv', 'mov', 'mp4', 'mpeg', 'mpg', 'ogv', 'rmvb', 'ts', 'vob',
+    'webm', 'wmv', 'y4m'
 }
 
 EXTENSIONS_AUDIO = Set {
-    'mp3', 'wav', 'ogm', 'flac', 'm4a', 'wma', 'ogg', 'opus'
+    'aiff', 'ape', 'au', 'flac', 'm4a', 'mka', 'mp3', 'oga', 'ogg',
+    'ogm', 'opus', 'wav', 'wma'
 }
 
 EXTENSIONS_IMAGES = Set {
-    'jpg', 'jpeg', 'png', 'tif', 'tiff', 'gif', 'webp', 'svg', 'bmp'
+    'avif', 'bmp', 'gif', 'j2k', 'jp2', 'jpeg', 'jpg', 'jxl', 'png',
+    'svg', 'tga', 'tif', 'tiff', 'webp'
 }
 
 EXTENSIONS = Set {}
@@ -221,7 +224,7 @@ function find_and_add_entries()
             end
         end
     end
-    if c > 0 then
+    if c ~= 0 then
         mp.add_timeout(2, function() mp.osd_message("Added " .. c .. " files to playlist") end)
     end
 
