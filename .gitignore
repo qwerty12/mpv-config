@@ -2,8 +2,7 @@
 /scripts-disabled/
 /script-opts/.webui_htpasswd
 /script-opts/webui.conf
-/scripts/search-page/screenshots/
-/scripts/file-browser/screenshots/
+/scripts/*/screenshots/
 /scripts/SmartCopyPaste/.misc/
 /scripts/playlistmanager/playlistmanager.png
 /scripts/trakt-mpv/config.json
