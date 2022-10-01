@@ -1,0 +1,117 @@
+diff --git a/scripts/uosc.lua b/scripts/uosc.lua
+index 81fb20b..ce8bc0c 100644
+--- a/scripts/uosc.lua
++++ b/scripts/uosc.lua
+@@ -815,13 +815,20 @@ function decide_navigation_in_list(list, current_index, delta)
+ 	return new_index, list[new_index]
+ end
+ 
++function write_watch_later()
++    if mp.get_property_bool("save-position-on-quit") then
++        mp.command("script-message-to auto_save_state skip-delete-state")
++        mp.command("write-watch-later-config")
++    end
++end
++
+ ---@param delta number
+ function navigate_directory(delta)
+ 	if not state.path or is_protocol(state.path) then return false end
+ 	local paths, current_index = get_adjacent_paths(state.path, config.media_types)
+ 	if paths and current_index then
+ 		local _, path = decide_navigation_in_list(paths, current_index, delta)
+-		if path then mp.commandv('loadfile', path) return true end
++		if path then write_watch_later() mp.commandv('loadfile', path) return true end
+ 	end
+ 	return false
+ end
+@@ -831,7 +838,7 @@ function navigate_playlist(delta)
+ 	local playlist, pos = mp.get_property_native('playlist'), mp.get_property_native('playlist-pos-1')
+ 	if playlist and #playlist > 1 and pos then
+ 		local index = decide_navigation_in_list(playlist, pos, delta)
+-		if index then mp.commandv('playlist-play-index', index - 1) return true end
++		if index then write_watch_later() mp.commandv('playlist-play-index', index - 1) return true end
+ 	end
+ 	return false
+ end
+@@ -2666,7 +2673,7 @@ function PauseIndicator:render()
+ 	end
+ 
+ 	-- Icon
+-	local size = round(math.min(display.width, display.height) * (is_static and 0.20 or 0.15))
++	local size = round(math.min(display.width, display.height) * 0.10)
+ 	size = size + size * (1 - self.opacity)
+ 
+ 	if self.paused then
+@@ -2774,7 +2781,8 @@ function Timeline:on_prop_time() self:decide_enabled() end
+ function Timeline:on_prop_border() self:update_dimensions() end
+ function Timeline:on_prop_fullormaxed() self:update_dimensions() end
+ function Timeline:on_display() self:update_dimensions() end
+-function Timeline:on_mouse_leave() mp.commandv('script-message-to', 'thumbfast', 'clear') end
++function Timeline:on_mouse_enter() show_clock(true) end
++function Timeline:on_mouse_leave() mp.commandv('script-message-to', 'thumbfast', 'clear') show_clock(false) end
+ function Timeline:on_global_mbtn_left_up() self.pressed = false end
+ function Timeline:on_global_mouse_leave() self.pressed = false end
+ function Timeline:on_global_mouse_move()
+@@ -3086,7 +3094,7 @@ function TopBar:update_dimensions()
+ 	self.size = state.fullormaxed and options.top_bar_size_fullscreen or options.top_bar_size
+ 	self.icon_size = round(self.size * 0.5)
+ 	self.spacing = math.ceil(self.size * 0.25)
+-	self.font_size = math.floor((self.size - (self.spacing * 2)) * options.font_scale)
++	self.font_size = math.floor((self.size - (self.spacing * 1.6)) * options.font_scale)
+ 	self.button_width = round(self.size * 1.15)
+ 	self.ay = Elements.window_border.size
+ 	self.bx = display.width - Elements.window_border.size
+@@ -3125,7 +3133,7 @@ function TopBar:render()
+ 	local ass = assdraw.ass_new()
+ 
+ 	-- Window title
+-	if options.top_bar_title and (state.title or state.has_playlist) then
++	if options.top_bar_title and state.title then
+ 		local bg_margin = math.floor((self.size - self.font_size) / 4)
+ 		local padding = self.font_size / 2
+ 		local title_ax = self.ax + bg_margin
+@@ -3133,7 +3141,7 @@ function TopBar:render()
+ 		local max_bx = self.title_bx - self.spacing
+ 
+ 		-- Playlist position
+-		if state.has_playlist then
++		if false then
+ 			local text = state.playlist_pos .. '' .. state.playlist_count
+ 			local formatted_text = '{\\b1}' .. state.playlist_pos .. '{\\b0\\fs' .. self.font_size * 0.9 .. '}/'
+ 				.. state.playlist_count
+@@ -3149,7 +3157,7 @@ function TopBar:render()
+ 
+ 		-- Title
+ 		if max_bx - title_ax > self.font_size * 3 then
+-			local text = state.title or 'n/a'
++			local text = state.title and mp.command_native({"expand-text", state.title}):gsub("\\n", " "):gsub("\\$", ""):gsub("{","\\{")  or 'mpv'
+ 			local bx = math.min(max_bx, title_ax + text_width_estimate(text, self.font_size) + padding * 2)
+ 			local by = self.by - bg_margin
+ 			ass:rect(title_ax, title_ay, bx, by, {
+@@ -4181,6 +4189,16 @@ function observe_display_fps(name, fps)
+ 	end
+ end
+ 
++function show_clock(val)
++    if val then
++        if state.fullscreen then
++            mp.command("script-message-to clock show-clock yes")
++        end
++    else
++        mp.command("script-message-to clock show-clock no")
++    end
++end
++
+ --[[ HOOKS]]
+ 
+ -- Mouse movement key binds
+@@ -4217,8 +4235,7 @@ mp.enable_key_bindings('mouse_movement', 'allow-vo-dragging+allow-hide-cursor')
+ 
+ mp.observe_property('osc', 'bool', function(name, value) if value == true then mp.set_property('osc', 'no') end end)
+ function update_title(title_template)
+-	if title_template:sub(-6) == ' - mpv' then title_template = title_template:sub(1, -7) end
+-	set_state('title', mp.command_native({'expand-text', title_template}))
++	set_state('title', title_template)
+ end
+ mp.register_event('file-loaded', function()
+ 	set_state('path', normalize_path(mp.get_property_native('path')))

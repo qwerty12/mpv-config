@@ -1,8 +1,8 @@
 <div align="center">
-	<a href="https://user-images.githubusercontent.com/47283320/185891110-f5f8a478-3970-4a14-bbf5-b444d571e4be.webm"><img src="https://user-images.githubusercontent.com/47283320/185892154-3b0f118a-491a-4175-807e-3de05d85ec9c.png" alt="Preview screenshot"></a>
+	<a href="https://user-images.githubusercontent.com/47283320/192066616-4a51b114-4383-437d-9124-03f4d9937427.webm"><img src="https://user-images.githubusercontent.com/47283320/192086463-e74c1380-d499-4329-8722-092742bc841e.png" alt="Preview screenshot"></a>
 	<h1>uosc</h1>
 	<p>
-		Minimalist cursor proximity based UI for <a href="https://mpv.io">MPV player</a>.
+		Feature-rich minimalist proximity-based UI for <a href="https://mpv.io">MPV player</a>.
 	</p>
 	<br>
 </div>
@@ -12,6 +12,8 @@ Most notable features:
 -   UI elements hide and show based on their proximity to cursor instead of every time mouse moves. This gives you 100% control over when you see the UI and when you don't. Click on the preview above to see it in action.
 -   Set min timeline size to make an always visible discrete progress bar.
 -   Build your own context menu with nesting support by editing your `input.conf` file.
+-   Configurable controls bar.
+-   Fast and efficient thumbnails with [thumbfast](https://github.com/po5/thumbfast) integration.
 -   UIs for:
     -   Loading external subtitles.
     -   Selecting subtitle/audio/video track.
@@ -25,25 +27,22 @@ Most notable features:
 -   Transform chapters into timeline ranges (the red portion of the timeline in the preview).
 -   And a lot of useful options and commands to bind keys to.
 
-[Changelog](./CHANGELOG.md).
+[Changelog](https://github.com/tomasklaen/uosc/releases).
 
 ## Download
 
-#### Latest version (recommended)
-
--   [`uosc.lua`](https://github.com/tomasklaen/uosc/releases/latest/download/uosc.lua) - script file
--   [`uosc.conf`](https://github.com/tomasklaen/uosc/releases/latest/download/uosc.conf) - configuration file with default values (optional)
-
-#### Development (unstable, might be broken)
-
--   [`uosc.lua`](https://raw.githubusercontent.com/tomasklaen/uosc/master/scripts/uosc.lua)
--   [`uosc.conf`](https://raw.githubusercontent.com/tomasklaen/uosc/master/script-opts/uosc.conf)
+-   [`uosc.zip`](https://github.com/tomasklaen/uosc/releases/latest/download/uosc.zip) - main archive with script and its requirements
+-   [`uosc.conf`](https://github.com/tomasklaen/uosc/releases/latest/download/uosc.conf) - configuration file with default values and documentation
 
 ## Installation
 
-1. **uosc** is a replacement for the built in osc, so that has to be disabled first.
+1. Extract `uosc.zip` into your mpv config directory.
 
-    In your `mpv.conf` (_List of all the possible places where configuration files can be located in is documented here: https://mpv.io/manual/master/#files_):
+    _List of all the possible places where it can be located is documented here: https://mpv.io/manual/master/#files_
+
+2. **uosc** is a replacement for the built in osc, so that has to be disabled first.
+
+    In your `mpv.conf` (file that should already exist in your mpv directory, if not, create it):
 
     ```config
     # required so that the 2 UIs don't fight each other
@@ -54,11 +53,11 @@ Most notable features:
     border=no
     ```
 
-2. Save `uosc.lua` into `scripts/` folder.
+3. To configure **uosc**, create a `script-opts/uosc.conf` file, or download `uosc.conf` with all default values from the link above, and save into `script-opts/` folder.
 
-3. To configure **uosc** to your likings, create a `script-opts/uosc.conf` file, or download `uosc.conf` with all default values from one of the links above, and save into `script-opts/` folder.
+4. **OPTIONAL**: To have thumbnails in timeline, install [thumbfast](https://github.com/po5/thumbfast). That's it, no other step necessary, **uosc** integrates with it seamlessly.
 
-4. **OPTIONAL**: If the UI feels sluggish/slow while playing video, you can remedy this a lot by placing this in your `mpv.conf`:
+5. **OPTIONAL**: If the UI feels sluggish/slow while playing video, you can remedy this a lot by placing this in your `mpv.conf`:
 
     ```config
     video-sync=display-resample
@@ -72,17 +71,15 @@ Most notable features:
 
 ## Options
 
-All of the available **uosc** options with their default values are in the provided `uosc.conf`. Follow one of the download links to the version of this file that matches your `uosc.lua`, or just peak the [latest development version](https://github.com/tomasklaen/uosc/blob/master/uosc.conf) for a quick reference, but this might have options that are different or not available in stable release.
+All of the available **uosc** options with their default values and documentation are in the provided `uosc.conf` file.
 
-To change the font, **uosc** respects the mpv `osd-font` configuration. To change it, you have to declare `osd-font` in your `mpv.conf`.
+To change the font, **uosc** respects the mpv's `osd-font` configuration.
 
 ## Keybindings
 
 The only keybinds **uosc** defines by default are menu navigation keys that are active only when one of the menus (context menu, load/select subtitles,...) is active. They are:
 
 -   `↑`, `↓`, `←`, `→` - up, down, previous menu or close, select item
--   `k`, `j`, `h`, `l` - up, down, previous menu or close, select item
--   `w`, `s`, `a`, `d` - up, down, previous menu or close, select item
 -   `enter` - select item
 -   `esc` - close menu
 -   `wheel_up`, `wheel_down` - scroll menu
@@ -101,32 +98,32 @@ To add a keybind to one of this commands, open your `input.conf` file and add on
 Example to bind the `tab` key to peek timeline:
 
 ```
-tab  script-binding uosc/peek-timeline
+tab  script-binding uosc/toggle-ui
 ```
 
 Available commands:
 
-#### `peek-timeline`
+#### `toggle-ui`
 
-Expands the bottom timeline until pressed again, or next mouse move. Useful to check times during playback.
+Makes the whole UI visible until you call this command again. Useful for peeking remaining time and such while watching.
+
+There's also a `toggle-elements <elements>` message you can send to toggle one or more specific elements by specifying their names separated by comma:
+
+```
+script-message-to uosc toggle-elements timeline,speed
+```
+
+Available element names: `timeline`, `controls`, `volume`, `top-bar`, `speed`
 
 #### `toggle-progress`
 
 Toggles the always visible portion of the timeline. You can look at it as switching `timeline_size_min` option between it's configured value and 0.
 
-#### `flash-timeline`
+#### `flash-{element}`
 
-#### `flash-top-bar`
+Commands to briefly flash a specified element. Available: `flash-timeline`, `flash-top-bar`, `flash-volume`, `flash-speed`, `flash-pause-indicator`, `decide-pause-indicator`
 
-#### `flash-volume`
-
-#### `flash-speed`
-
-#### `flash-pause-indicator`
-
-#### `decide-pause-indicator`
-
-Commands to briefly flash a specified element. You can use it in your bindings like so:
+You can use it in your bindings like so:
 
 ```
 space        cycle pause; script-binding uosc/flash-pause-indicator
@@ -148,7 +145,9 @@ Case for `(flash/decide)-pause-indicator`: mpv handles frame stepping forward by
 
 #### `menu`
 
-Toggles menu. Menu is empty by default and won't show up when this is pressed. Read [Menu](#menu-1) section below to find out how to fill it up with items you want there.
+Toggles default menu. Read [Menu](#menu-1) section below to find out how to fill it up with items you want there.
+
+Note: there's also a `menu-blurred` command that opens a menu without pre-selecting the 1st item, suitable for commands triggered with a mouse, such as control bar buttons.
 
 #### `subtitles`, `audio`, `video`
 
@@ -167,6 +166,10 @@ Playlist navigation.
 #### `chapters`
 
 Chapter navigation.
+
+#### `editions`
+
+Editions menu. Editions are different video cuts available in some mkv files.
 
 #### `stream-quality`
 
@@ -327,6 +330,7 @@ alt+s       script-binding uosc/load-subtitles     #! Utils > Load subtitles
 #           set video-aspect-override "4:3"        #! Utils > Aspect ratio > 4:3
 #           set video-aspect-override "2.35:1"     #! Utils > Aspect ratio > 2.35:1
 #           script-binding uosc/audio-device       #! Utils > Audio devices
+#           script-binding uosc/editions           #! Utils > Editions
 ctrl+s      async screenshot                       #! Utils > Screenshot
 O           script-binding uosc/show-in-directory  #! Utils > Show in directory
 #           script-binding uosc/open-config-directory #! Utils > Open config directory
@@ -350,7 +354,7 @@ Tells uosc to send it's version to `<script_id>` script. Useful if you want to d
 ```lua
 -- Register response handler
 mp.register_script_message('uosc-version', function(version)
-	print('uosc version', version)
+  print('uosc version', version)
 end)
 
 -- Ask for version
@@ -367,60 +371,164 @@ Parameters
 
 ID (title) of the submenu, including `>` subsections as defined in `input.conf`. It has to be match the title exactly.
 
-### `show-menu <menu_json>`
+### `open-menu <menu_json> [submenu_id]`
 
-A message other scripts can send to display a uosc menu serialized as JSON.
+A message other scripts can send to open a uosc menu serialized as JSON. You can optionally pass a `submenu_id` to pre-open a submenu. The ID is the submenu title chain leading to the submenu concatenated with `>`, for example `Tools > Aspect ratio`.
 
 Menu data structure:
 
 ```
 Menu {
-    type?: string;
-    title?: string;
-    selected_index?: number;
-    active_index?: number;
-    items: Item[];
-}
-
-Submenu {
-    title?: string;
-    items: Item[];
+  type?: string;
+  title?: string;
+  items: Item[];
+  selected_index?: integer;
+  keep_open?: boolean;
 }
 
 Item = Command | Submenu;
 
+Submenu {
+  title?: string;
+  hint?: string;
+  items: Item[];
+  keep_open?: boolean;
+}
+
 Command {
-    title?: string;
-    hint?: string;
-    value: string | string[];
-    bold?: boolean;
-    italic?: boolean;
-    muted?: boolean;
+  title?: string;
+  hint?: string;
+  icon?: string;
+  value: string | string[];
+  bold?: boolean;
+  italic?: boolean;
+  muted?: boolean;
+  active?: integer;
+  keep_open?: boolean;
 }
 ```
 
 When command value is a string, it'll be passed to `mp.command(value)`. If it's a table (array) of strings, it'll be used as `mp.commandv(table.unpack(value))`.
 
-Menu `type` controls what happens when opening a menu when some other menu is already open. When the new menu type is different, it'll replace the currently opened menu. When it's the same, the currently open menu will simply be closed. This is used to implement toggling (open->close) of menus with the same key.
+Menu `type` controls what happens when opening a menu when some other menu is already open. When the new menu type is different, it'll replace the currently opened menu. When it's the same, the currently open menu will simply be closed. This is used to implement toggling of menus with the same type.
 
-`active_index` displays the item at that index as active. For example, in subtitles menu, the currently displayed subtitles are considered _active_.
+`item.icon` property accepts icon names. You can pick one from here: [Google Material Icons](https://fonts.google.com/icons?selected=Material+Icons)
 
-`selected_index` marks item at that index as selected - the starting position for all keyboard based navigation in the menu. It defaults to `active_index` if any, or `1` otherwise, which means in most cases you can just ignore this prop.
+When `keep_open` is `true`, activating the item will not close the menu. This property can be defined on both menus and items, and is inherited from parent to child if child doesn't overwrite it.
+
+It's usually not necessary to define `selected_index` as it'll default to the first `active` item, or 1st item in the list.
 
 Example:
 
 ```lua
 local utils = require('mp.utils')
 local menu = {
-    type = 'menu_type',
-    title = 'Custom menu',
-    active_index = 1,
-    selected_index = 1,
-    items = {
-        {title = 'Foo', hint = 'foo', value = 'quit'},
-        {title = 'Bar', hint = 'bar', value = 'quit'},
-    }
+  type = 'menu_type',
+  title = 'Custom menu',
+  items = {
+    {title = 'Foo', hint = 'foo', value = 'quit'},
+    {title = 'Bar', hint = 'bar', value = 'quit', active = true},
+  }
 }
 local json = utils.format_json(menu)
-mp.commandv('script-message-to', 'uosc', 'show-menu', json)
+mp.commandv('script-message-to', 'uosc', 'open-menu', json)
 ```
+
+### `update-menu <menu_json>`
+
+Updates currently opened menu with the same `type`. If the menu isn't open, it will be opened.
+
+The difference between this and `open-menu` is that if the same type menu is already open, `open-menu` will close it (facilitating menu toggling with the same key/command), while `update-menu` will update it's data.
+
+`update-menu`, along with `{menu/item}.keep_open` property and `item.command` that sends a message back can be used to create a self updating menu with some limited UI. Example:
+
+```lua
+local utils = require('mp.utils')
+local script_name = mp.get_script_name()
+local state = {
+  checkbox = 'no',
+  radio = 'bar'
+}
+
+function command(str)
+  return string.format('script-message-to %s %s', script_name, str)
+end
+
+function create_menu_data()
+  return {
+    type = 'test_menu',
+    title = 'Test menu',
+    keep_open = true,
+    items = {
+      {
+        title = 'Checkbox',
+        icon = state.checkbox == 'yes' and 'check_box' or 'check_box_outline_blank',
+        value = command('set-state checkbox ' .. (state.checkbox == 'yes' and 'no' or 'yes'))
+      },
+      {
+        title = 'Radio',
+        hint = state.radio,
+        items = {
+          {
+            title = 'Foo',
+            icon = state.radio == 'foo' and 'radio_button_checked' or 'radio_button_unchecked',
+            value = command('set-state radio foo')
+          },
+          {
+            title = 'Bar',
+            icon = state.radio == 'bar' and 'radio_button_checked' or 'radio_button_unchecked',
+            value = command('set-state radio bar')
+          },
+          {
+            title = 'Baz',
+            icon = state.radio == 'baz' and 'radio_button_checked' or 'radio_button_unchecked',
+            value = command('set-state radio baz')
+          },
+        },
+      },
+      {
+        title = 'Submit',
+        icon = 'check',
+        value = command('submit'),
+        keep_open = false
+      },
+    }
+  }
+end
+
+mp.add_forced_key_binding('t', 'test_menu', function()
+  local json = utils.format_json(create_menu_data())
+  mp.commandv('script-message-to', 'uosc', 'open-menu', json)
+end)
+
+mp.register_script_message('set-state', function(prop, value)
+  state[prop] = value
+  -- Update currently opened menu
+  local json = utils.format_json(create_menu_data())
+  mp.commandv('script-message-to', 'uosc', 'update-menu', json)
+end)
+
+mp.register_script_message('submit', function(prop, value)
+  -- Do something with state
+end)
+```
+
+### `set <prop> <value>`
+
+Tell **uosc** to set an external property to this value. Currently, this is only used to display control button badges:
+
+In your script, set the value of `foo` to `1`.
+
+```lua
+mp.commandv('script-message-to', 'uosc', 'set', 'foo', 1)
+```
+
+This property can now be used as a control button badge by prefixing it with `@`.
+
+```
+controls=command:icon_name:command_name#@foo?My foo button
+```
+
+## Why _uosc_?
+
+It stood for micro osc as it used to render just a couple rectangles before it grew to what it is today. And now it means a minimalist UI design direction where everything is out of your way until needed.
