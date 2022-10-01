@@ -15,7 +15,7 @@ local categories = {
 }
 
 local options = {
-    enabled = false,
+    enabled = true,
     skip_once = true,
     categories = "",
     skip = ""
@@ -47,10 +47,6 @@ end
 
 local skipped = {}
 local parsed = {}
-
-local function toggle_chapterskip()
-    options.enabled = not options.enabled
-end
 
 function chapterskip(_, current)
     mp.options.read_options(options, "chapterskip")
@@ -90,4 +86,3 @@ end
 
 mp.observe_property("chapter", "number", chapterskip)
 mp.register_event("file-loaded", function() skipped = {} end)
-mp.register_script_message("chapter-skip", toggle_chapterskip)
