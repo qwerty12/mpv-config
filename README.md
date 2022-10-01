@@ -38,6 +38,8 @@ A modified [osc-potplayer-box-knob-or-bar-0.lua](https://github.com/422658476/MP
 
 * mpv.conf and script-opts\autosubsync.conf, at the very least, hardcode paths specific to my system, which you should change for correct operation
 
+* Where possible, `D:\.mpv_temp` is used to store temporary files created by mpv or one of its scripts. This might cause breakage on your system if the folder doesn't exist.
+
 ### Credits
 
 For the scripts, it should be obvious where they're from, so I'll avoid listing them again. Configurations were copied from the following places:
