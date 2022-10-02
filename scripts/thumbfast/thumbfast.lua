@@ -275,25 +275,16 @@ local function run(command, callback)
     if not spawned then return end
 
     if options.use_lua_io and os_name == "Windows" then
-        local open_for_reading = false --callback ~= nil
-        local result = {status = 0, killed_by_us = false, error_string = "", stdout = ""}
-
-        local p, errmsg = io.open("\\\\.\\pipe\\" .. options.socket, open_for_reading and "r+b" or "wb")
+        local p = io.open("\\\\.\\pipe\\" .. options.socket, "wb")
         if p then
             p:write(command)
             p:write("\n")
             p:flush()
-            if open_for_reading then
-                result.stdout = p:read("*l")
-            end
             p:close()
-        else
-            result.status = -1
-            result.error_string = errmsg
         end
 
         if callback then
-            mp.add_timeout(0, function() callback(true, result, nil) end)
+            mp.add_timeout(0, callback)
         end
 
         return
