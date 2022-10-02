@@ -1,5 +1,5 @@
 diff --git a/scripts/uosc.lua b/scripts/uosc.lua
-index 81fb20b..ce8bc0c 100644
+index 8afb534..ca62ccd 100644
 --- a/scripts/uosc.lua
 +++ b/scripts/uosc.lua
 @@ -815,13 +815,20 @@ function decide_navigation_in_list(list, current_index, delta)
@@ -33,7 +33,7 @@ index 81fb20b..ce8bc0c 100644
  	end
  	return false
  end
-@@ -2666,7 +2673,7 @@ function PauseIndicator:render()
+@@ -2667,7 +2674,7 @@ function PauseIndicator:render()
  	end
  
  	-- Icon
@@ -42,7 +42,7 @@ index 81fb20b..ce8bc0c 100644
  	size = size + size * (1 - self.opacity)
  
  	if self.paused then
-@@ -2774,7 +2781,8 @@ function Timeline:on_prop_time() self:decide_enabled() end
+@@ -2775,7 +2782,8 @@ function Timeline:on_prop_time() self:decide_enabled() end
  function Timeline:on_prop_border() self:update_dimensions() end
  function Timeline:on_prop_fullormaxed() self:update_dimensions() end
  function Timeline:on_display() self:update_dimensions() end
@@ -52,7 +52,7 @@ index 81fb20b..ce8bc0c 100644
  function Timeline:on_global_mbtn_left_up() self.pressed = false end
  function Timeline:on_global_mouse_leave() self.pressed = false end
  function Timeline:on_global_mouse_move()
-@@ -3086,7 +3094,7 @@ function TopBar:update_dimensions()
+@@ -3087,7 +3095,7 @@ function TopBar:update_dimensions()
  	self.size = state.fullormaxed and options.top_bar_size_fullscreen or options.top_bar_size
  	self.icon_size = round(self.size * 0.5)
  	self.spacing = math.ceil(self.size * 0.25)
@@ -61,7 +61,7 @@ index 81fb20b..ce8bc0c 100644
  	self.button_width = round(self.size * 1.15)
  	self.ay = Elements.window_border.size
  	self.bx = display.width - Elements.window_border.size
-@@ -3125,7 +3133,7 @@ function TopBar:render()
+@@ -3126,7 +3134,7 @@ function TopBar:render()
  	local ass = assdraw.ass_new()
  
  	-- Window title
@@ -70,7 +70,7 @@ index 81fb20b..ce8bc0c 100644
  		local bg_margin = math.floor((self.size - self.font_size) / 4)
  		local padding = self.font_size / 2
  		local title_ax = self.ax + bg_margin
-@@ -3133,7 +3141,7 @@ function TopBar:render()
+@@ -3134,7 +3142,7 @@ function TopBar:render()
  		local max_bx = self.title_bx - self.spacing
  
  		-- Playlist position
@@ -79,7 +79,7 @@ index 81fb20b..ce8bc0c 100644
  			local text = state.playlist_pos .. '' .. state.playlist_count
  			local formatted_text = '{\\b1}' .. state.playlist_pos .. '{\\b0\\fs' .. self.font_size * 0.9 .. '}/'
  				.. state.playlist_count
-@@ -3149,7 +3157,7 @@ function TopBar:render()
+@@ -3150,7 +3158,7 @@ function TopBar:render()
  
  		-- Title
  		if max_bx - title_ax > self.font_size * 3 then
@@ -88,7 +88,7 @@ index 81fb20b..ce8bc0c 100644
  			local bx = math.min(max_bx, title_ax + text_width_estimate(text, self.font_size) + padding * 2)
  			local by = self.by - bg_margin
  			ass:rect(title_ax, title_ay, bx, by, {
-@@ -4181,6 +4189,16 @@ function observe_display_fps(name, fps)
+@@ -4182,6 +4190,16 @@ function observe_display_fps(name, fps)
  	end
  end
  
@@ -105,7 +105,7 @@ index 81fb20b..ce8bc0c 100644
  --[[ HOOKS]]
  
  -- Mouse movement key binds
-@@ -4217,8 +4235,7 @@ mp.enable_key_bindings('mouse_movement', 'allow-vo-dragging+allow-hide-cursor')
+@@ -4218,8 +4236,7 @@ mp.enable_key_bindings('mouse_movement', 'allow-vo-dragging+allow-hide-cursor')
  
  mp.observe_property('osc', 'bool', function(name, value) if value == true then mp.set_property('osc', 'no') end end)
  function update_title(title_template)
