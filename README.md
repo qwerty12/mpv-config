@@ -1,6 +1,6 @@
 Config for [mpv](https://mpv.io/). I use this on Windows with [my modified nightly `mpv` builds](https://github.com/qwerty12/mpv-winbuild/) (a Scoop manifest can be found in [my bucket](https://github.com/qwerty12/scoop-alts)).
 
-A modified [osc-potplayer-box-knob-or-bar-0.lua](https://github.com/422658476/MPV-EASY-Player/blob/master/mpv-easy-data/osc-style/osc-potplayer-box-knob-or-bar-0.lua) is used for the OSC, while [uosc](https://github.com/darsain/uosc) provides the top bar.
+[uosc](https://github.com/tomasklaen/uosc) is used to provide the OSC.
 
 ### Notes
 
