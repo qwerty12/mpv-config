@@ -1071,7 +1071,7 @@ end
 function ass_mt:rect(ax, ay, bx, by, opts)
 	opts = opts or {}
 	local border_size = opts.border or 0
-	local tags = '\\pos(0,0)\\rDefault\\blur0'
+	local tags = '\\pos(0,0)\\rDefault\\an7\\blur0'
 	-- border
 	tags = tags .. '\\bord' .. border_size
 	-- colors
@@ -1228,6 +1228,13 @@ function Elements:toggle(ids)
 	local all_visible = itable_find(elements, function(element) return element.min_visibility ~= 1 end) == nil
 	local to = all_visible and 0 or 1
 	for _, element in ipairs(elements) do element:tween_property('min_visibility', element.min_visibility, to) end
+end
+
+-- Flash passed elements.
+---@param ids string[] IDs of elements to peek.
+function Elements:flash(ids)
+	local elements = itable_filter(self.itable, function(element) return itable_index_of(ids, element.id) ~= nil end)
+	for _, element in ipairs(elements) do element:flash() end
 end
 
 ---@param name string Event name.
@@ -1535,6 +1542,7 @@ function Element:flash()
 	if options.flash_duration > 0 and (self.proximity < 1 or self._flash_out_timer:is_enabled()) then
 		self:tween_stop()
 		self.forced_visibility = 1
+		request_render()
 		self._flash_out_timer:kill()
 		self._flash_out_timer:resume()
 	end
@@ -2418,7 +2426,7 @@ function Speed:render()
 
 	-- Center guide
 	ass:new_event()
-	ass:append('{\\rDefault\\blur0\\bord1\\shad0\\1c&H' .. options.foreground .. '\\3c&H' .. options.background .. '}')
+	ass:append('{\\rDefault\\an7\\blur0\\bord1\\shad0\\1c&H' .. options.foreground .. '\\3c&H' .. options.background .. '}')
 	ass:opacity(opacity)
 	ass:pos(0, 0)
 	ass:draw_start()
@@ -2849,7 +2857,7 @@ function Timeline:render()
 	-- Background
 	ass:new_event()
 	ass:pos(0, 0)
-	ass:append('{\\rDefault\\blur0\\bord0\\1c&H' .. options.background .. '}')
+	ass:append('{\\rDefault\\an7\\blur0\\bord0\\1c&H' .. options.background .. '}')
 	ass:opacity(math.max(options.timeline_opacity - 0.1, 0))
 	ass:draw_start()
 	ass:rect_cw(bax, bay, fax, bby) --left of progress
@@ -2900,7 +2908,7 @@ function Timeline:render()
 				local chapter_y = fay - 1
 				ass:new_event()
 				ass:append(string.format(
-					'{\\pos(0,0)\\rDefault\\blur0\\yshad0.01\\bord%f\\1c&H%s\\3c&H%s\\4c&H%s\\1a&H%X&\\3a&H00&\\4a&H00&}',
+					'{\\pos(0,0)\\rDefault\\an7\\blur0\\yshad0.01\\bord%f\\1c&H%s\\3c&H%s\\4c&H%s\\1a&H%X&\\3a&H00&\\4a&H00&}',
 					diamond_border, options.foreground, options.background, options.background,
 					opacity_to_alpha(options.timeline_opacity * options.timeline_chapters_opacity)
 				))
@@ -3663,7 +3671,7 @@ function VolumeSlider:render()
 
 	-- Background
 	ass:new_event()
-	ass:append('{\\rDefault\\blur0\\bord0\\1c&H' .. options.background ..
+	ass:append('{\\rDefault\\an7\\blur0\\bord0\\1c&H' .. options.background ..
 		'\\iclip(' .. fg_path.scale .. ', ' .. fg_path.text .. ')}')
 	ass:opacity(math.max(options.volume_opacity - 0.1, 0), visibility)
 	ass:pos(0, 0)
@@ -3673,7 +3681,7 @@ function VolumeSlider:render()
 
 	-- Foreground
 	ass:new_event()
-	ass:append('{\\rDefault\\blur0\\bord0\\1c&H' .. options.foreground .. '}')
+	ass:append('{\\rDefault\\an7\\blur0\\bord0\\1c&H' .. options.foreground .. '}')
 	ass:opacity(options.volume_opacity, visibility)
 	ass:pos(0, 0)
 	ass:draw_start()
@@ -3877,27 +3885,24 @@ function create_select_tracklist_type_menu_opener(menu_title, track_type, track_
 
 		for _, track in ipairs(tracklist) do
 			if track.type == track_type then
-				local hint_values = {
-					track.lang and track.lang:upper() or nil,
-					track['demux-h'] and (track['demux-w'] and track['demux-w'] .. 'x' .. track['demux-h']
-						or track['demux-h'] .. 'p'),
-					track['demux-fps'] and string.format('%.5gfps', track['demux-fps']) or nil,
-					track.codec,
-					track['audio-channels'] and track['audio-channels'] .. ' channels' or nil,
-					track['demux-samplerate'] and string.format('%.3gkHz', track['demux-samplerate'] / 1000) or nil,
-					track.forced and 'forced' or nil,
-					track.default and 'default' or nil,
-				}
-				local hint_values_filtered = {}
-				for i = 1, #hint_values do
-					if hint_values[i] then
-						hint_values_filtered[#hint_values_filtered + 1] = hint_values[i]
-					end
+				local hint_values = {}
+				local function h(value) hint_values[#hint_values + 1] = value end
+
+				if track.lang then h(track.lang:upper()) end
+				if track['demux-h'] then
+					h(track['demux-w'] and (track['demux-w'] .. 'x' .. track['demux-h']) or (track['demux-h'] .. 'p'))
 				end
+				if track['demux-fps'] then h(string.format('%.5gfps', track['demux-fps'])) end
+				h(track.codec)
+				if track['audio-channels'] then h(track['audio-channels'] .. ' channels') end
+				if track['demux-samplerate'] then h(string.format('%.3gkHz', track['demux-samplerate'] / 1000)) end
+				if track.forced then h('forced') end
+				if track.default then h('default') end
+				if track.external then h('external') end
 
 				items[#items + 1] = {
 					title = (track.title and track.title or 'Track ' .. track.id),
-					hint = table.concat(hint_values_filtered, ', '),
+					hint = table.concat(hint_values, ', '),
 					value = track.id,
 					active = track.selected,
 				}
@@ -4389,6 +4394,12 @@ mp.observe_property('estimated-display-fps', 'native', update_render_delay)
 -- KEY BINDABLE FEATURES
 
 mp.add_key_binding(nil, 'toggle-ui', function() Elements:toggle({'timeline', 'controls', 'volume', 'top_bar'}) end)
+mp.add_key_binding(nil, 'flash-ui', function() Elements:flash({'timeline', 'controls', 'volume', 'top_bar'}) end)
+mp.add_key_binding(nil, 'flash-timeline', function() Elements:flash({'timeline'}) end)
+mp.add_key_binding(nil, 'flash-top-bar', function() Elements:flash({'top_bar'}) end)
+mp.add_key_binding(nil, 'flash-volume', function() Elements:flash({'volume'}) end)
+mp.add_key_binding(nil, 'flash-speed', function() Elements:flash({'speed'}) end)
+mp.add_key_binding(nil, 'flash-pause-indicator', function() Elements:flash({'pause_indicator'}) end)
 mp.add_key_binding(nil, 'toggle-progress', function()
 	local timeline = Elements.timeline
 	if timeline.size_min_override then
@@ -4399,24 +4410,7 @@ mp.add_key_binding(nil, 'toggle-progress', function()
 		timeline:tween_property('size_min_override', timeline.size_min, 0)
 	end
 end)
-mp.add_key_binding(nil, 'flash-timeline', function()
-	Elements.timeline:flash()
-end)
-mp.add_key_binding(nil, 'flash-top-bar', function()
-	Elements.top_bar:flash()
-end)
-mp.add_key_binding(nil, 'flash-volume', function()
-	if Elements.volume then Elements.volume:flash() end
-end)
-mp.add_key_binding(nil, 'flash-speed', function()
-	if Elements.speed then Elements.speed:flash() end
-end)
-mp.add_key_binding(nil, 'flash-pause-indicator', function()
-	Elements.pause_indicator:flash()
-end)
-mp.add_key_binding(nil, 'decide-pause-indicator', function()
-	Elements.pause_indicator:decide()
-end)
+mp.add_key_binding(nil, 'decide-pause-indicator', function() Elements.pause_indicator:decide() end)
 mp.add_key_binding(nil, 'menu', function() toggle_menu_with_items() end)
 mp.add_key_binding(nil, 'menu-blurred', function() toggle_menu_with_items({mouse_nav = true}) end)
 local track_loaders = {
@@ -4758,3 +4752,4 @@ mp.register_script_message('set', function(name, value)
 	Elements:trigger('external_prop_' .. name, utils.parse_json(value))
 end)
 mp.register_script_message('toggle-elements', function(elements) Elements:toggle(split(elements, ' *, *')) end)
+mp.register_script_message('flash-elements', function(elements) Elements:flash(split(elements, ' *, *')) end)
