@@ -34,14 +34,14 @@ local function on_fs_change(name, value)
     if not value then return end
 
     local style
-    for i = 1, 10 do
-        ffi.C.Sleep(100)
+    for _ = 1, 20 do
+        ffi.C.Sleep(50)
         style = ffi.C.GetWindowLongPtrW(mpv_hwnd, GWL_STYLE)
         if bit.band(style, WS_SYSMENU) == WS_SYSMENU then break end
     end
-    if mp.get_property_bool(name) then
+    --if mp.get_property_bool(name) then
         ffi.C.SetWindowLongPtrW(mpv_hwnd, GWL_STYLE, bit.band(style, bit.bnot(WS_SYSMENU)))
-    end
+    --end
 end
 
 local function on_focused(_, value)
