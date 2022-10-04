@@ -7,10 +7,11 @@
 -- This script skips chapters based on their title.
 
 local categories = {
-    prologue = "^[Pp]rologue/^[Ii]ntro",
-    opening = "^OP/ OP$/^[Oo]pening/[Oo]pening$",
-    ending = "^ED/ ED$/^[Ee]nding/[Ee]nding$",
-    credits = "^[Cc]redits/[Cc]redits$",
+    prologue = "^[Pp]rologue",
+    intro = "^[Ii]ntro",
+    opening = "^OP/ OP$/^[Oo]pening",
+    ending = "^ED/ ED$/^[Ee]nding",
+    credits = "^[Cc]redits",
     preview = "[Pp]review$"
 }
 
@@ -18,7 +19,8 @@ local options = {
     enabled = true,
     skip_once = true,
     categories = "",
-    skip = ""
+    skip = "",
+    verbose = false
 }
 
 mp.options = require "mp.options"
@@ -48,11 +50,24 @@ end
 local skipped = {}
 local parsed = {}
 
+local function set_uosc_property()
+    mp.commandv('script-message-to', 'uosc', 'set', 'chapterskip_enabled', options.enabled and 1 or 0)
+end
+
+local function toggle_chapterskip()
+    options.enabled = not options.enabled
+    --if options.verbose then
+    --    mp.osd_message("chapterskip " .. (options.enabled and "enabled" or "disabled"))
+    --end
+    set_uosc_property()
+end
+
 function chapterskip(_, current)
     mp.options.read_options(options, "chapterskip")
+    set_uosc_property()
     if not options.enabled then return end
     for category in string.gmatch(options.categories, "([^;]+)") do
-        name, patterns = string.match(category, " *([^+>]*[^+> ]) *[+>](.*)")
+        local name, patterns = string.match(category, " *([^+>]*[^+> ]) *[+>](.*)")
         if name then
             categories[name:lower()] = patterns
         elseif not parsed[category] then
@@ -71,12 +86,18 @@ function chapterskip(_, current)
                 skip = i
             end
         elseif skip then
+            if options.verbose then
+                mp.osd_message("chapterskip: skipping " .. chapters[skip].title)
+            end
             mp.set_property("time-pos", chapter.time)
             skipped[skip] = true
             return
         end
     end
     if skip then
+        if options.verbose then
+            mp.osd_message("chapterskip: next file")
+        end
         if mp.get_property_native("playlist-count") == mp.get_property_native("playlist-pos-1") then
             return mp.set_property("time-pos", mp.get_property_native("duration"))
         end
@@ -86,3 +107,6 @@ end
 
 mp.observe_property("chapter", "number", chapterskip)
 mp.register_event("file-loaded", function() skipped = {} end)
+mp.options.read_options(options, "chapterskip")
+mp.register_script_message("cs-toggle", toggle_chapterskip)
+set_uosc_property()
