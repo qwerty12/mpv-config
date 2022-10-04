@@ -29,6 +29,7 @@ local function FolderExistsW(FileName)
     return dwAttrib ~= INVALID_FILE_ATTRIBUTES and bit.band(dwAttrib, FILE_ATTRIBUTE_DIRECTORY) == FILE_ATTRIBUTE_DIRECTORY
 end
 
+ffi.C._wputenv_s(MultiByteToWideChar("CLINK_NOAUTORUN"), ffi.new("wchar_t[1]", string.byte("1")))
 local new_temp = MultiByteToWideChar("D:\\.mpv_temp")
 if FolderExistsW(new_temp) then
     ffi.C._wputenv_s(MultiByteToWideChar("TEMP"), new_temp)
