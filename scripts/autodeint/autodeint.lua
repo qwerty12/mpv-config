@@ -93,6 +93,9 @@ progressive, interlaced_tff, interlaced_bff, interlaced = 0, 1, 2, 3, 4
 function judge(label)
     -- get the metadata
     local result = mp.get_property_native(string.format("vf-metadata/%s", label))
+    if not result then
+        return progressive
+    end
     local num_tff          = tonumber(result["lavfi.idet.multiple.tff"])
     local num_bff          = tonumber(result["lavfi.idet.multiple.bff"])
     local num_progressive  = tonumber(result["lavfi.idet.multiple.progressive"])
@@ -154,9 +157,14 @@ function select_filter()
     end
 end
 
+local initial = true
 mp.observe_property("video-format", "string", function(_, value)
+    if initial then
+        initial = false
+        return
+    end
     if value == "mpeg2video" then
         start_detect()
     end
 end)
-mp.add_key_binding("ctrl+d", script_name, start_detect)
+mp.add_key_binding(nil, script_name, start_detect)

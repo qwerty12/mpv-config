@@ -18,7 +18,6 @@ local utils = require 'mp.utils'
 local options = require 'mp.options'
 
 o = {
-    key = "N",
     path = "subliminal",    -- absolute path to subliminal if not on PATH
     languages = "en,eng", -- list of IETF languages to search
     forceutf8 = true,       -- Force subtitles to be saved as utf-8
@@ -134,4 +133,4 @@ function main()
     parse_subliminal(txt)
 end
 
-mp.add_key_binding(o.key, "subit", main)
+mp.register_script_message("subit", main)
