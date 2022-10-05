@@ -157,12 +157,7 @@ function select_filter()
     end
 end
 
-local initial = true
 mp.observe_property("video-format", "string", function(_, value)
-    if initial then
-        initial = false
-        return
-    end
     if value == "mpeg2video" then
         start_detect()
     end
