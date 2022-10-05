@@ -5,7 +5,7 @@ void* __stdcall FindWindowExA(void *hWndParent, void *hWndChildAfter, const char
 unsigned int __stdcall GetWindowThreadProcessId(void *hWnd, unsigned int *lpdwProcessId);
 unsigned long __stdcall GetWindowLongPtrW(void *hWnd, int nIndex);
 int64_t __stdcall SetWindowLongPtrW(void *hWnd, int nIndex, unsigned long dwNewLong);
-void __stdcall Sleep(unsigned long dwMilliseconds);
+const char *GetCommandLineA();
 ]]
 
 local GWL_STYLE = -16
@@ -30,22 +30,45 @@ local function get_mpv_hwnd()
     return hwnd
 end
 
-local function on_fs_change(_, value)
-    value = value ~= nil and value or mp.get_property_bool("fullscreen")
-    if not value then return end
+local function disable_ws_sysmenu()
+    local ws_style = ffi.C.GetWindowLongPtrW(mpv_hwnd, GWL_STYLE)
+    if ws_style ~= 0 and bit.band(ws_style, WS_SYSMENU) == WS_SYSMENU then
+        ffi.C.SetWindowLongPtrW(mpv_hwnd, GWL_STYLE, bit.band(ws_style, bit.bnot(WS_SYSMENU)))
+        return true
+    end
+    return false
+end
 
-    local ws_style = nil
-    for _ = 1, 20 do
-        ffi.C.Sleep(50)
-        local s = ffi.C.GetWindowLongPtrW(mpv_hwnd, GWL_STYLE)
-        if bit.band(s, WS_SYSMENU) == WS_SYSMENU then
-            ws_style = s
-            break
+local another_tick = ffi.string(ffi.C.GetCommandLineA()):find("--fullscreen") ~= nil and 0 or -1
+local timer = nil
+timer = mp.add_periodic_timer(1, function()
+    if not mp.get_property_bool("fullscreen") then
+        another_tick = -1
+        timer:kill()
+        return
+    end
+    if disable_ws_sysmenu() then
+        if another_tick == -1 then
+            timer:kill()
+        else
+            another_tick = another_tick + 1
+            if another_tick % 2 == 0 then
+                another_tick = -1
+                timer:kill()
+            end
         end
     end
-    if ws_style and mp.get_property_bool("fullscreen") then
-        ffi.C.SetWindowLongPtrW(mpv_hwnd, GWL_STYLE, bit.band(ws_style, bit.bnot(WS_SYSMENU)))
+end)
+timer:kill()
+
+local function on_fs_change(_, value)
+    if not value then return end
+    if timer:is_enabled() then return end
+
+    if another_tick == -1 and disable_ws_sysmenu() then
+        return
     end
+    timer:resume()
 end
 
 local function on_focused(_, value)
@@ -55,7 +78,6 @@ local function on_focused(_, value)
     mpv_hwnd = get_mpv_hwnd()
     if mpv_hwnd ~= nil then
         mp.observe_property("fullscreen", "bool", on_fs_change)
-        mp.register_event("video-reconfig", on_fs_change)
     end
 end
 
