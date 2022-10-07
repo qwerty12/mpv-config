@@ -501,7 +501,7 @@ local endpoints = {
         local _, success, ret = pcall(mp.commandv, 'osd-msg', "seek", -position)
         return handle_post(success, ret)
       end
-      pcall(mp.commandv, 'write-watch-later-config')
+      pcall(mp.command, 'write-watch-later-config')
       pcall(mp.command, 'script-message-to auto_save_state skip-delete-state')
       local _, success, ret = pcall(mp.commandv, 'osd-msg', "playlist-prev")
       return handle_post(success, ret)
@@ -510,7 +510,7 @@ local endpoints = {
 
   ["api/playlist_next"] = {
     POST = function(_)
-      pcall(mp.commandv, 'write-watch-later-config')
+      pcall(mp.command, 'write-watch-later-config')
       pcall(mp.command, 'script-message-to auto_save_state skip-delete-state')
       local _, success, ret = pcall(mp.commandv, 'osd-msg', "playlist-next")
       return handle_post(success, ret)

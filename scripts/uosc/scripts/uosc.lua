@@ -28,12 +28,6 @@ function serialize_rgba(rgba)
 	}
 end
 
----@param color string RGB(A) color.
-function contrast(color)
-	local sum = tonumber(color:sub(1, 2), 16) + tonumber(color:sub(3, 4), 16) + tonumber(color:sub(5, 6), 16)
-	return sum / 765 > 0.5 and '000000' or 'ffffff'
-end
-
 ---@param str string
 ---@param pattern string
 ---@return string[]
@@ -166,6 +160,7 @@ local defaults = {
 	timeline_border = 1,
 	timeline_step = 5,
 	timeline_chapters_opacity = 0.8,
+	timeline_drag_seek_keyframes = false,
 
 	controls = 'menu,gap,subtitles,<has_many_audio>audio,<has_many_video>video,<has_many_edition>editions,<stream>stream-quality,gap,space,speed,space,shuffle,loop-playlist,loop-file,gap,prev,items,next,gap,fullscreen',
 	controls_size = 32,
@@ -216,7 +211,9 @@ local defaults = {
 	proximity_in = 40,
 	proximity_out = 120,
 	foreground = 'ffffff',
+	foreground_text = '000000',
 	background = '000000',
+	background_text = 'ffffff',
 	total_time = false,
 	time_precision = 0,
 	font_bold = false,
@@ -241,7 +238,7 @@ if options.chapter_ranges:sub(1, 4) == '^op|' then options.chapter_ranges = defa
 if options.autoload then mp.commandv('set', 'keep-open-pause', 'no') end
 -- Color shorthands
 local fg, bg = serialize_rgba(options.foreground).color, serialize_rgba(options.background).color
-local fgc, bgc = contrast(fg), contrast(bg)
+local fgt, bgt = serialize_rgba(options.foreground_text).color, serialize_rgba(options.background_text).color
 
 --[[ CONFIG ]]
 
@@ -439,6 +436,8 @@ local state = {
 	cache = nil,
 	cache_buffering = 100,
 	cache_underrun = false,
+	core_idle = false,
+	eof_reached = false,
 	render_delay = config.render_delay,
 	first_real_mouse_move_received = false,
 	playlist_count = 0,
@@ -805,6 +804,7 @@ function decide_navigation_in_list(list, current_index, delta)
 
 	if state.shuffle then
 		local new_index = current_index
+		math.randomseed(os.time())
 		while current_index == new_index do new_index = math.random(#list) end
 		return new_index, list[new_index]
 	end
@@ -1004,8 +1004,7 @@ end
 ---@param opts? {color?: string; border?: number; border_color?: string; opacity?: number; clip?: string; align?: number}
 function ass_mt:icon(x, y, size, name, opts)
 	opts = opts or {}
-	opts.size = size
-	opts.font = 'MaterialIconsRound-Regular'
+	opts.font, opts.size, opts.bold = 'MaterialIconsRound-Regular', size, false
 	self:txt(x, y, opts.align or 5, name, opts)
 end
 
@@ -1025,7 +1024,7 @@ function ass_mt:txt(x, y, align, value, opts)
 	-- font size
 	tags = tags .. '\\fs' .. opts.size
 	-- bold
-	if opts.bold or options.font_bold then tags = tags .. '\\b1' end
+	if opts.bold or (opts.bold == nil and options.font_bold) then tags = tags .. '\\b1' end
 	-- italic
 	if opts.italic then tags = tags .. '\\i1' end
 	-- rotate
@@ -1037,7 +1036,7 @@ function ass_mt:txt(x, y, align, value, opts)
 	-- shadow
 	tags = tags .. '\\shad' .. shadow_size
 	-- colors
-	tags = tags .. '\\1c&H' .. (opts.color or bgc)
+	tags = tags .. '\\1c&H' .. (opts.color or bgt)
 	if border_size > 0 then tags = tags .. '\\3c&H' .. (opts.border_color or bg) end
 	if shadow_size > 0 then tags = tags .. '\\4c&H' .. (opts.shadow_color or bg) end
 	-- opacity
@@ -1074,7 +1073,7 @@ end
 ---@param ay number
 ---@param bx number
 ---@param by number
----@param opts? {color?: string; border?: number; border_color?: string; opacity?: number; clip?: string, radius?: number}
+---@param opts? {color?: string; border?: number; border_color?: string; opacity?: number; border_opacity?: number; clip?: string, radius?: number}
 function ass_mt:rect(ax, ay, bx, by, opts)
 	opts = opts or {}
 	local border_size = opts.border or 0
@@ -1083,13 +1082,10 @@ function ass_mt:rect(ax, ay, bx, by, opts)
 	tags = tags .. '\\bord' .. border_size
 	-- colors
 	tags = tags .. '\\1c&H' .. (opts.color or fg)
-	if border_size > 0 then
-		tags = tags .. '\\3c&H' .. (opts.border_color or bg)
-	end
+	if border_size > 0 then tags = tags .. '\\3c&H' .. (opts.border_color or bg) end
 	-- opacity
-	if opts.opacity then
-		tags = tags .. string.format('\\alpha&H%X&', opacity_to_alpha(opts.opacity))
-	end
+	if opts.opacity then tags = tags .. string.format('\\alpha&H%X&', opacity_to_alpha(opts.opacity)) end
+	if opts.border_opacity then tags = tags .. string.format('\\3a&H%X&', opacity_to_alpha(opts.border_opacity)) end
 	-- clip
 	if opts.clip then
 		tags = tags .. opts.clip
@@ -1136,7 +1132,7 @@ function ass_mt:texture(ax, ay, bx, by, char, opts)
 	for i = 1, math.ceil(height / tile_size), 1 do lines = lines .. (lines == '' and '' or '\\N') .. line end
 	self:txt(
 		x, y, 7, lines,
-		{font = 'uosc_textures', size = tile_size, color = opts.color, opacity = opacity, clip = clip})
+		{font = 'uosc_textures', size = tile_size, color = opts.color, bold = false, opacity = opacity, clip = clip})
 end
 
 --[[ ELEMENTS COLLECTION ]]
@@ -1343,25 +1339,6 @@ end
 
 --[[ RENDERING ]]
 
--- Request that render() is called.
--- The render is then either executed immediately, or rate-limited if it was
--- called a small time ago.
-function request_render()
-	if state.render_timer == nil then
-		state.render_timer = mp.add_timeout(0, render)
-	end
-
-	if not state.render_timer:is_enabled() then
-		local now = mp.get_time()
-		local timeout = state.render_delay - (now - state.render_last_time)
-		if timeout < 0 then
-			timeout = 0
-		end
-		state.render_timer.timeout = timeout
-		state.render_timer:resume()
-	end
-end
-
 function render()
 	state.render_last_time = mp.get_time()
 
@@ -1390,6 +1367,18 @@ function render()
 	osd:update()
 
 	update_margins()
+end
+
+-- Request that render() is called.
+-- The render is then either executed immediately, or rate-limited if it was
+-- called a small time ago.
+state.render_timer = mp.add_timeout(0, render)
+state.render_timer:kill()
+function request_render()
+	if state.render_timer:is_enabled() then return end
+	local timeout = math.max(0, state.render_delay - (mp.get_time() - state.render_last_time))
+	state.render_timer.timeout = timeout
+	state.render_timer:resume()
 end
 
 --[[ CLASSES ]]
@@ -2151,7 +2140,7 @@ function Menu:render()
 			-- controls title & hint clipping proportional to the ratio of their widths
 			local title_hint_ratio = item.hint and item.title_width / (item.title_width + item.hint_width) or 1
 			local content_ax, content_bx = ax + spacing, bx - spacing
-			local font_color = item.active and fgc or bgc
+			local font_color = item.active and fgt or bgt
 			local shadow_color = item.active and fg or bg
 
 			-- Separator
@@ -2439,7 +2428,7 @@ function Speed:render()
 	-- Speed value
 	local speed_text = (round(state.speed * 100) / 100) .. 'x'
 	ass:txt(half_x, ay + (notch_ay_big - ay) / 2, 5, speed_text, {
-		size = self.font_size, color = bgc, border = options.text_border, border_color = bg, opacity = opacity,
+		size = self.font_size, color = bgt, border = options.text_border, border_color = bg, opacity = opacity,
 	})
 
 	return ass
@@ -2492,7 +2481,7 @@ function Button:render()
 	if is_hover_or_active then
 		ass:rect(self.ax, self.ay, self.bx, self.by, {
 			color = self.active and background or foreground, radius = 2,
-			opacity = visibility * (self.active and 0.8 or 0.3),
+			opacity = visibility * (self.active and 1 or 0.3),
 		})
 	end
 
@@ -2711,19 +2700,28 @@ function BufferingIndicator:init()
 end
 
 function BufferingIndicator:decide_enabled()
-	self.enabled = state.cache_underrun or state.cache_buffering and state.cache_buffering < 100
-	if self.enabled then Elements.curtain:register(self)
-	else Elements.curtain:unregister(self) end
+	if not state.is_stream then self.enabled = false end
+	local cache = state.cache_underrun or state.cache_buffering and state.cache_buffering < 100
+	local player = state.core_idle and not state.eof_reached
+	if self.enabled then
+		if not player or (state.pause and not cache) then self.enabled = false end
+	elseif player and cache and state.uncached_ranges then self.enabled = true end
 end
 
+function BufferingIndicator:on_prop_pause() self:decide_enabled() end
+function BufferingIndicator:on_prop_core_idle() self:decide_enabled() end
+function BufferingIndicator:on_prop_eof_reached() self:decide_enabled() end
+function BufferingIndicator:on_prop_uncached_ranges() self:decide_enabled() end
 function BufferingIndicator:on_prop_cache_buffering() self:decide_enabled() end
 function BufferingIndicator:on_prop_cache_underrun() self:decide_enabled() end
 
 function BufferingIndicator:render()
 	local ass = assdraw.ass_new()
-	local progress = state.render_last_time * 2 % 1
-	local opts = {rotate = progress * -360, color = fg}
-	ass:icon(display.width / 2, display.height / 2, state.fullormaxed and 120 or 90, 'autorenew', opts)
+	ass:rect(0, 0, display.width, display.height, {color = bg, opacity = 0.3})
+	local size = round(40 + math.min(display.width, display.height) / 8)
+	local opacity = (Elements.menu and not Elements.menu.is_closing) and 0.3 or nil
+	local opts = {rotate = (state.render_last_time * 2 % 1) * -360, color = fg, opacity = opacity}
+	ass:icon(display.width / 2, display.height / 2, size, 'autorenew', opts)
 	request_render()
 	return ass
 end
@@ -2806,26 +2804,30 @@ function Timeline:get_time_at_x(x)
 	return state.duration * progress
 end
 
-function Timeline:set_from_cursor()
-	mp.commandv('seek', self:get_time_at_x(cursor.x), 'absolute+exact')
+---@param fast? boolean
+function Timeline:set_from_cursor(fast)
+	mp.commandv('seek', self:get_time_at_x(cursor.x), fast and 'absolute+keyframes' or 'absolute+exact')
 end
+function Timeline:clear_thumbnail() mp.commandv('script-message-to', 'thumbfast', 'clear') end
 
 function Timeline:on_mbtn_left_down()
 	self.pressed = true
 	self:set_from_cursor()
 end
-
 function Timeline:on_prop_duration() self:decide_enabled() end
 function Timeline:on_prop_time() self:decide_enabled() end
 function Timeline:on_prop_border() self:update_dimensions() end
 function Timeline:on_prop_fullormaxed() self:update_dimensions() end
 function Timeline:on_display() self:update_dimensions() end
 function Timeline:on_mouse_enter() show_clock(true) end
-function Timeline:on_mouse_leave() mp.commandv('script-message-to', 'thumbfast', 'clear') show_clock(false) end
+function Timeline:on_mouse_leave() self:clear_thumbnail() show_clock(false) end
 function Timeline:on_global_mbtn_left_up() self.pressed = false end
-function Timeline:on_global_mouse_leave() self.pressed = false end
+function Timeline:on_global_mouse_leave()
+	self.pressed = false
+	self:clear_thumbnail()
+end
 function Timeline:on_global_mouse_move()
-	if self.pressed then self:set_from_cursor() end
+	if self.pressed then self:set_from_cursor(options.timeline_drag_seek_keyframes) end
 end
 function Timeline:on_wheel_up() mp.commandv('seek', options.timeline_step) end
 function Timeline:on_wheel_down() mp.commandv('seek', -options.timeline_step) end
@@ -2888,7 +2890,7 @@ function Timeline:render()
 	ass:new_event()
 	ass:pos(0, 0)
 	ass:append('{\\rDefault\\an7\\blur0\\bord0\\1c&H' .. bg .. '}')
-	ass:opacity(math.max(options.timeline_opacity - 0.1, 0))
+	ass:opacity(options.timeline_opacity)
 	ass:draw_start()
 	ass:rect_cw(bax, bay, fax, bby) --left of progress
 	ass:rect_cw(fbx, bay, bbx, bby) --right of progress
@@ -2961,10 +2963,10 @@ function Timeline:render()
 	end
 
 	local function draw_timeline_text(x, y, align, text, opts)
-		opts.color, opts.border_color = fgc, fg
+		opts.color, opts.border_color = fgt, fg
 		opts.clip = '\\clip(' .. foreground_coordinates .. ')'
 		ass:txt(x, y, align, text, opts)
-		opts.color, opts.border_color = bgc, bg
+		opts.color, opts.border_color = bgt, bg
 		opts.clip = '\\iclip(' .. foreground_coordinates .. ')'
 		ass:txt(x, y, align, text, opts)
 	end
@@ -3024,7 +3026,7 @@ function Timeline:render()
 			local thumb_y = round(tooltip_anchor.ay * scale_y - thumb_y_margin - thumb_height)
 			local ax, ay = (thumb_x - border) / scale_x, (thumb_y - border) / scale_y
 			local bx, by = (thumb_x + thumb_width + border) / scale_x, (thumb_y + thumb_height + border) / scale_y
-			ass:rect(ax, ay, bx, by, {color = fg, border = 1, border_color = bg, radius = 3, opacity = 0.8})
+			ass:rect(ax, ay, bx, by, {color = bg, border = 1, border_color = fg, border_opacity = 0.1, radius = 2})
 			mp.commandv('script-message-to', 'thumbfast', 'thumb', hovered_seconds, thumb_x, thumb_y)
 			tooltip_anchor.ax, tooltip_anchor.bx, tooltip_anchor.ay = ax, bx, ay
 		end
@@ -3183,7 +3185,7 @@ function TopBar:render()
 			local bx = round(title_ax + text_length_width_estimate(#text, self.font_size) + padding * 2)
 			ass:rect(title_ax, title_ay, bx, self.by - bg_margin, {color = fg, opacity = visibility, radius = 2})
 			ass:txt(title_ax + (bx - title_ax) / 2, self.ay + (self.size / 2), 5, formatted_text, {
-				size = self.font_size, wrap = 2, color = fgc, opacity = visibility,
+				size = self.font_size, wrap = 2, color = fgt, opacity = visibility,
 			})
 			title_ax = bx + bg_margin
 		end
@@ -3197,7 +3199,7 @@ function TopBar:render()
 				color = bg, opacity = visibility * options.top_bar_title_opacity, radius = 2,
 			})
 			ass:txt(title_ax + padding, self.ay + (self.size / 2), 4, text, {
-				size = self.font_size, wrap = 2, color = bgc, border = 1, border_color = bg, opacity = visibility,
+				size = self.font_size, wrap = 2, color = bgt, border = 1, border_color = bg, opacity = visibility,
 				clip = string.format('\\clip(%d, %d, %d, %d)', self.ax, self.ay, max_bx, self.by),
 			})
 			title_ay = by + 1
@@ -3214,7 +3216,7 @@ function TopBar:render()
 				color = bg, opacity = visibility * options.top_bar_title_opacity, radius = 2,
 			})
 			ass:txt(ax + padding, title_ay + height / 2, 4, '{\\i1}' .. text .. '{\\i0}', {
-				size = font_size, wrap = 2, color = bgc, border = 1, border_color = bg, opacity = visibility * 0.8,
+				size = font_size, wrap = 2, color = bgt, border = 1, border_color = bg, opacity = visibility * 0.8,
 				clip = string.format('\\clip(%d, %d, %d, %d)', title_ax, title_ay, bx, by),
 			})
 		end
@@ -3697,7 +3699,7 @@ function VolumeSlider:render()
 	ass:new_event()
 	ass:append('{\\rDefault\\an7\\blur0\\bord0\\1c&H' .. bg ..
 		'\\iclip(' .. fg_path.scale .. ', ' .. fg_path.text .. ')}')
-	ass:opacity(math.max(options.volume_opacity - 0.1, 0), visibility)
+	ass:opacity(options.volume_opacity, visibility)
 	ass:pos(0, 0)
 	ass:draw_start()
 	ass:append(bg_path.text)
@@ -3717,13 +3719,13 @@ function VolumeSlider:render()
 	local font_size = round(((width * 0.6) - (#volume_string * (width / 20))) * options.font_scale)
 	if volume_y < self.by - self.spacing then
 		ass:txt(self.ax + (width / 2), self.by - self.spacing, 2, volume_string, {
-			size = font_size, color = fgc, opacity = visibility,
+			size = font_size, color = fgt, opacity = visibility,
 			clip = '\\clip(' .. fg_path.scale .. ', ' .. fg_path.text .. ')',
 		})
 	end
 	if volume_y > self.by - self.spacing - font_size then
 		ass:txt(self.ax + (width / 2), self.by - self.spacing, 2, volume_string, {
-			size = font_size, color = bgc, opacity = visibility,
+			size = font_size, color = bgt, opacity = visibility,
 			clip = '\\iclip(' .. fg_path.scale .. ', ' .. fg_path.text .. ')',
 		})
 	end
@@ -3821,13 +3823,13 @@ end
 --[[ CREATE STATIC ELEMENTS ]]
 
 WindowBorder:new()
+BufferingIndicator:new()
 PauseIndicator:new()
 TopBar:new()
 Timeline:new()
 if options.controls and options.controls ~= 'never' then Controls:new() end
 if itable_index_of({'left', 'right'}, options.volume) then Volume:new() end
 Curtain:new()
-BufferingIndicator:new()
 
 --[[ MENUS ]]
 
@@ -4424,6 +4426,8 @@ mp.observe_property('demuxer-cache-state', 'native', function(prop, cache_state)
 end)
 mp.observe_property('display-fps', 'native', observe_display_fps)
 mp.observe_property('estimated-display-fps', 'native', update_render_delay)
+mp.observe_property('eof-reached', 'native', create_state_setter('eof_reached'))
+mp.observe_property('core-idle', 'native', create_state_setter('core_idle'))
 
 -- KEY BINDABLE FEATURES
 
