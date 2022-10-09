@@ -160,7 +160,6 @@ local defaults = {
 	timeline_border = 1,
 	timeline_step = 5,
 	timeline_chapters_opacity = 0.8,
-	timeline_drag_seek_keyframes = false,
 
 	controls = 'menu,gap,subtitles,<has_many_audio>audio,<has_many_video>video,<has_many_edition>editions,<stream>stream-quality,gap,space,speed,space,shuffle,loop-playlist,loop-file,gap,prev,items,next,gap,fullscreen',
 	controls_size = 32,
@@ -206,7 +205,9 @@ local defaults = {
 	ui_scale = 1,
 	font_scale = 1,
 	text_border = 1.2,
-	pause_on_click_shorter_than = 0,
+	pause_on_click_shorter_than = 0, -- deprecated by below
+	click_threshold = 0,
+	click_command = 'cycle pause; script-binding uosc/flash-pause-indicator',
 	flash_duration = 1000,
 	proximity_in = 40,
 	proximity_out = 120,
@@ -234,6 +235,10 @@ opt.read_options(options, 'uosc')
 -- Normalize values
 options.proximity_out = math.max(options.proximity_out, options.proximity_in + 1)
 if options.chapter_ranges:sub(1, 4) == '^op|' then options.chapter_ranges = defaults.chapter_ranges end
+if options.pause_on_click_shorter_than > 0 and options.click_threshold == 0 then
+	msg.warn('`pause_on_click_shorter_than` is deprecated. Use `click_threshold` and `click_command` instead.')
+	options.click_threshold = options.pause_on_click_shorter_than
+end
 -- Ensure required environment configuration
 if options.autoload then mp.commandv('set', 'keep-open-pause', 'no') end
 -- Color shorthands
@@ -2806,7 +2811,18 @@ end
 
 ---@param fast? boolean
 function Timeline:set_from_cursor(fast)
-	mp.commandv('seek', self:get_time_at_x(cursor.x), fast and 'absolute+keyframes' or 'absolute+exact')
+	if state.time and state.duration then
+		mp.commandv('seek', self:get_time_at_x(cursor.x), fast and 'absolute+keyframes' or 'absolute+exact')
+	end
+end
+function show_clock(val)
+	if val then
+		if state.fullscreen then
+			mp.command("script-message-to clock show-clock yes")
+		end
+	else
+		mp.command("script-message-to clock show-clock no")
+	end
 end
 function Timeline:clear_thumbnail() mp.commandv('script-message-to', 'thumbfast', 'clear') end
 
@@ -2821,13 +2837,25 @@ function Timeline:on_prop_fullormaxed() self:update_dimensions() end
 function Timeline:on_display() self:update_dimensions() end
 function Timeline:on_mouse_enter() show_clock(true) end
 function Timeline:on_mouse_leave() self:clear_thumbnail() show_clock(false) end
-function Timeline:on_global_mbtn_left_up() self.pressed = false end
+function Timeline:on_global_mbtn_left_up()
+	self.pressed = false
+	self:clear_thumbnail()
+end
 function Timeline:on_global_mouse_leave()
 	self.pressed = false
 	self:clear_thumbnail()
 end
+
+Timeline.seek_timer = mp.add_timeout(0.05, function() Elements.timeline:set_from_cursor() end)
+Timeline.seek_timer:kill()
 function Timeline:on_global_mouse_move()
-	if self.pressed then self:set_from_cursor(options.timeline_drag_seek_keyframes) end
+	if self.pressed then
+		if self.width / state.duration < 10 then
+			self:set_from_cursor(true)
+			self.seek_timer:kill()
+			self.seek_timer:resume()
+		else self:set_from_cursor() end
+	end
 end
 function Timeline:on_wheel_up() mp.commandv('seek', options.timeline_step) end
 function Timeline:on_wheel_down() mp.commandv('seek', -options.timeline_step) end
@@ -4129,24 +4157,17 @@ function set_state(name, value)
 	Elements:trigger('prop_' .. name, value)
 end
 
-function update_cursor_position()
-	cursor.x, cursor.y = mp.get_mouse_pos()
-
+function update_cursor_position(x, y)
 	-- mpv reports initial mouse position on linux as (0, 0), which always
 	-- displays the top bar, so we hardcode cursor position as infinity until
 	-- we receive a first real mouse move event with coordinates other than 0,0.
 	if not state.first_real_mouse_move_received then
-		if cursor.x > 0 and cursor.y > 0 then
-			state.first_real_mouse_move_received = true
-		else
-			cursor.x = infinity
-			cursor.y = infinity
-		end
+		if x > 0 and y > 0 then state.first_real_mouse_move_received = true
+		else x, y = infinity, infinity end
 	end
 
 	-- add 0.5 to be in the middle of the pixel
-	cursor.x = (cursor.x + 0.5) / display.scale_x
-	cursor.y = (cursor.y + 0.5) / display.scale_y
+	cursor.x, cursor.y = (x + 0.5) / display.scale_x, (y + 0.5) / display.scale_y
 
 	Elements:update_proximities()
 	request_render()
@@ -4168,21 +4189,14 @@ function handle_mouse_leave()
 	Elements:trigger('global_mouse_leave')
 end
 
-function handle_mouse_enter()
+function handle_mouse_enter(x, y)
 	cursor.hidden = false
-	update_cursor_position()
+	update_cursor_position(x, y)
 	Elements:trigger('global_mouse_enter')
 end
 
-function handle_mouse_move()
-	-- Handle case when we are in cursor hidden state but not left the actual
-	-- window (i.e. when autohide simulates mouse_leave).
-	if cursor.hidden then
-		handle_mouse_enter()
-		return
-	end
-
-	update_cursor_position()
+function handle_mouse_move(x, y)
+	update_cursor_position(x, y)
 	Elements:proximity_trigger('mouse_move')
 	request_render()
 
@@ -4233,46 +4247,48 @@ function observe_display_fps(name, fps)
 	end
 end
 
-function show_clock(val)
-    if val then
-        if state.fullscreen then
-            mp.command("script-message-to clock show-clock yes")
-        end
-    else
-        mp.command("script-message-to clock show-clock no")
-    end
+function select_current_chapter()
+	local current_chapter
+	if state.time and state.chapters then
+		_, current_chapter = itable_find(state.chapters, function(c) return state.time >= c.time end, true)
+	end
+	set_state('current_chapter', current_chapter)
 end
 
---[[ HOOKS]]
+--[[ HOOKS ]]
 
--- Mouse movement key binds
-local mouse_keybinds = {
-	{'mouse_move', handle_mouse_move},
-	{'mouse_leave', handle_mouse_leave},
-	{'mouse_enter', handle_mouse_enter},
-}
-if options.pause_on_click_shorter_than > 0 then
-	-- Cycles pause when click is shorter than `options.pause_on_click_shorter_than`
+-- Click detection
+if options.click_threshold > 0 then
+	-- Executes custom command for clicks shorter than `options.click_threshold`
 	-- while filtering out double clicks.
-	local duration_seconds = options.pause_on_click_shorter_than / 1000
-	local last_down_event
-	local click_timer = mp.add_timeout(duration_seconds, function() mp.command('cycle pause') end)
-	click_timer:kill()
-	mouse_keybinds[#mouse_keybinds + 1] = {'mbtn_left', function()
-		if mp.get_time() - last_down_event < duration_seconds then click_timer:resume() end
-	end, function()
-		if click_timer:is_enabled() then
-			click_timer:kill()
-			last_down_event = 0
+	local duration_seconds = options.click_threshold / 1000
+	local last_click = 0
+	mp.add_key_binding('mbtn_left', 'uosc_mouse', function(tab)
+		if tab.event == 'up' then
+			local delta = mp.get_time() - last_click
+			-- in windowed mode the up event comes shortly after the down event, ignore
+			if delta > 0.01 and delta < duration_seconds then
+				last_click = 0
+				mp.command(options.click_command)
+			end
 		else
-			last_down_event = mp.get_time()
+			last_click = mp.get_time()
 		end
-	end,
-	}
+	end, {complex = true})
+	mp.observe_property('mouse-pos', 'native', function(_, mouse)
+		if mouse.hover and mp.get_time() - last_click < duration_seconds then
+			last_click = 0
+			mp.command(options.click_command)
+		end
+	end)
 end
-mp.set_key_bindings(mouse_keybinds, 'mouse_movement', 'force')
-mp.enable_key_bindings('mouse_movement', 'allow-vo-dragging+allow-hide-cursor')
 
+mp.observe_property('mouse-pos', 'native', function(_, mouse)
+	if mouse.hover then
+		if cursor.hidden then handle_mouse_enter(mouse.x, mouse.y) end
+		handle_mouse_move(mouse.x, mouse.y)
+	else handle_mouse_leave() end
+end)
 mp.observe_property('osc', 'bool', function(name, value) if value == true then mp.set_property('osc', 'no') end end)
 function update_title(title_template)
 	set_state('title', title_template)
@@ -4307,13 +4323,7 @@ mp.observe_property('playback-time', 'number', create_state_setter('time', funct
 	end
 
 	update_human_times()
-
-	-- Select current chapter
-	local current_chapter
-	if state.time and state.chapters then
-		_, current_chapter = itable_find(state.chapters, function(c) return state.time >= c.time end, true)
-	end
-	set_state('current_chapter', current_chapter)
+	select_current_chapter()
 end))
 mp.observe_property('duration', 'number', create_state_setter('duration', update_human_times))
 mp.observe_property('speed', 'number', create_state_setter('speed', update_human_times))
@@ -4347,6 +4357,7 @@ mp.observe_property('chapter-list', 'native', function(_, chapters)
 	set_state('chapters', chapters)
 	set_state('chapter_ranges', chapter_ranges)
 	set_state('has_chapter', #chapters > 0)
+	select_current_chapter()
 	Elements:trigger('dispositions')
 end)
 mp.observe_property('border', 'bool', create_state_setter('border'))

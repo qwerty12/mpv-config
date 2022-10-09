@@ -1,8 +1,8 @@
 diff --git a/scripts/uosc.lua b/scripts/uosc.lua
-index 876f6ec..540cddb 100644
+index cfcd47d..bd89222 100644
 --- a/scripts/uosc.lua
 +++ b/scripts/uosc.lua
-@@ -820,13 +820,20 @@ function decide_navigation_in_list(list, current_index, delta)
+@@ -825,13 +825,20 @@ function decide_navigation_in_list(list, current_index, delta)
  	return new_index, list[new_index]
  end
  
@@ -24,7 +24,7 @@ index 876f6ec..540cddb 100644
  	end
  	return false
  end
-@@ -836,7 +843,7 @@ function navigate_playlist(delta)
+@@ -841,7 +848,7 @@ function navigate_playlist(delta)
  	local playlist, pos = mp.get_property_native('playlist'), mp.get_property_native('playlist-pos-1')
  	if playlist and #playlist > 1 and pos then
  		local index = decide_navigation_in_list(playlist, pos, delta)
@@ -33,7 +33,7 @@ index 876f6ec..540cddb 100644
  	end
  	return false
  end
-@@ -2664,7 +2671,7 @@ function PauseIndicator:render()
+@@ -2669,7 +2676,7 @@ function PauseIndicator:render()
  	end
  
  	-- Icon
@@ -42,7 +42,7 @@ index 876f6ec..540cddb 100644
  	size = size + size * (1 - self.opacity)
  
  	if self.paused then
-@@ -2693,6 +2700,7 @@ function BufferingIndicator:init()
+@@ -2698,6 +2705,7 @@ function BufferingIndicator:init()
  end
  
  function BufferingIndicator:decide_enabled()
@@ -50,17 +50,33 @@ index 876f6ec..540cddb 100644
  	local cache = state.cache_underrun or state.cache_buffering and state.cache_buffering < 100
  	local player = state.core_idle and not state.eof_reached
  	if self.enabled then
-@@ -2811,7 +2819,8 @@ function Timeline:on_prop_time() self:decide_enabled() end
+@@ -2807,6 +2815,15 @@ function Timeline:set_from_cursor(fast)
+ 		mp.commandv('seek', self:get_time_at_x(cursor.x), fast and 'absolute+keyframes' or 'absolute+exact')
+ 	end
+ end
++function show_clock(val)
++	if val then
++		if state.fullscreen then
++			mp.command("script-message-to clock show-clock yes")
++		end
++	else
++		mp.command("script-message-to clock show-clock no")
++	end
++end
+ function Timeline:clear_thumbnail() mp.commandv('script-message-to', 'thumbfast', 'clear') end
+ 
+ function Timeline:on_mbtn_left_down()
+@@ -2818,7 +2835,8 @@ function Timeline:on_prop_time() self:decide_enabled() end
  function Timeline:on_prop_border() self:update_dimensions() end
  function Timeline:on_prop_fullormaxed() self:update_dimensions() end
  function Timeline:on_display() self:update_dimensions() end
 -function Timeline:on_mouse_leave() self:clear_thumbnail() end
 +function Timeline:on_mouse_enter() show_clock(true) end
 +function Timeline:on_mouse_leave() self:clear_thumbnail() show_clock(false) end
- function Timeline:on_global_mbtn_left_up() self.pressed = false end
- function Timeline:on_global_mouse_leave()
+ function Timeline:on_global_mbtn_left_up()
  	self.pressed = false
-@@ -3122,7 +3131,7 @@ function TopBar:update_dimensions()
+ 	self:clear_thumbnail()
+@@ -3141,7 +3159,7 @@ function TopBar:update_dimensions()
  	self.size = state.fullormaxed and options.top_bar_size_fullscreen or options.top_bar_size
  	self.icon_size = round(self.size * 0.5)
  	self.spacing = math.ceil(self.size * 0.25)
@@ -69,7 +85,7 @@ index 876f6ec..540cddb 100644
  	self.button_width = round(self.size * 1.15)
  	self.ay = Elements.window_border.size
  	self.bx = display.width - Elements.window_border.size
-@@ -3161,7 +3170,7 @@ function TopBar:render()
+@@ -3180,7 +3198,7 @@ function TopBar:render()
  	local ass = assdraw.ass_new()
  
  	-- Window title
@@ -78,7 +94,7 @@ index 876f6ec..540cddb 100644
  		local bg_margin = math.floor((self.size - self.font_size) / 4)
  		local padding = self.font_size / 2
  		local title_ax = self.ax + bg_margin
-@@ -3169,7 +3178,7 @@ function TopBar:render()
+@@ -3188,7 +3206,7 @@ function TopBar:render()
  		local max_bx = self.title_bx - self.spacing
  
  		-- Playlist position
@@ -87,7 +103,7 @@ index 876f6ec..540cddb 100644
  			local text = state.playlist_pos .. '' .. state.playlist_count
  			local formatted_text = '{\\b1}' .. state.playlist_pos .. '{\\b0\\fs' .. self.font_size * 0.9 .. '}/'
  				.. state.playlist_count
-@@ -3183,7 +3192,7 @@ function TopBar:render()
+@@ -3202,7 +3220,7 @@ function TopBar:render()
  
  		-- Title
  		if max_bx - title_ax > self.font_size * 3 then
@@ -96,25 +112,8 @@ index 876f6ec..540cddb 100644
  			local bx = math.min(max_bx, title_ax + text_width_estimate(text, self.font_size) + padding * 2)
  			local by = self.by - bg_margin
  			ass:rect(title_ax, title_ay, bx, by, {
-@@ -4224,6 +4233,16 @@ function observe_display_fps(name, fps)
- 	end
- end
- 
-+function show_clock(val)
-+    if val then
-+        if state.fullscreen then
-+            mp.command("script-message-to clock show-clock yes")
-+        end
-+    else
-+        mp.command("script-message-to clock show-clock no")
-+    end
-+end
-+
- --[[ HOOKS]]
- 
- -- Mouse movement key binds
-@@ -4256,8 +4275,7 @@ mp.enable_key_bindings('mouse_movement', 'allow-vo-dragging+allow-hide-cursor')
- 
+@@ -4273,8 +4291,7 @@ mp.observe_property('mouse-pos', 'native', function(_, mouse)
+ end)
  mp.observe_property('osc', 'bool', function(name, value) if value == true then mp.set_property('osc', 'no') end end)
  function update_title(title_template)
 -	if title_template:sub(-6) == ' - mpv' then title_template = title_template:sub(1, -7) end
