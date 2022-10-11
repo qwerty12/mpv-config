@@ -1,8 +1,8 @@
 diff --git a/scripts/uosc.lua b/scripts/uosc.lua
-index cfcd47d..bd89222 100644
+index 9828aca..da93efc 100644
 --- a/scripts/uosc.lua
 +++ b/scripts/uosc.lua
-@@ -825,13 +825,20 @@ function decide_navigation_in_list(list, current_index, delta)
+@@ -830,13 +830,20 @@ function decide_navigation_in_list(list, current_index, delta)
  	return new_index, list[new_index]
  end
  
@@ -24,7 +24,7 @@ index cfcd47d..bd89222 100644
  	end
  	return false
  end
-@@ -841,7 +848,7 @@ function navigate_playlist(delta)
+@@ -846,7 +853,7 @@ function navigate_playlist(delta)
  	local playlist, pos = mp.get_property_native('playlist'), mp.get_property_native('playlist-pos-1')
  	if playlist and #playlist > 1 and pos then
  		local index = decide_navigation_in_list(playlist, pos, delta)
@@ -33,7 +33,7 @@ index cfcd47d..bd89222 100644
  	end
  	return false
  end
-@@ -2669,7 +2676,7 @@ function PauseIndicator:render()
+@@ -2681,7 +2688,7 @@ function PauseIndicator:render()
  	end
  
  	-- Icon
@@ -42,7 +42,7 @@ index cfcd47d..bd89222 100644
  	size = size + size * (1 - self.opacity)
  
  	if self.paused then
-@@ -2698,6 +2705,7 @@ function BufferingIndicator:init()
+@@ -2710,6 +2717,7 @@ function BufferingIndicator:init()
  end
  
  function BufferingIndicator:decide_enabled()
@@ -50,10 +50,10 @@ index cfcd47d..bd89222 100644
  	local cache = state.cache_underrun or state.cache_buffering and state.cache_buffering < 100
  	local player = state.core_idle and not state.eof_reached
  	if self.enabled then
-@@ -2807,6 +2815,15 @@ function Timeline:set_from_cursor(fast)
- 		mp.commandv('seek', self:get_time_at_x(cursor.x), fast and 'absolute+keyframes' or 'absolute+exact')
- 	end
+@@ -2813,6 +2821,16 @@ function Timeline:get_time_at_x(x)
+ 	return state.duration * progress
  end
+ 
 +function show_clock(val)
 +	if val then
 +		if state.fullscreen then
@@ -63,10 +63,11 @@ index cfcd47d..bd89222 100644
 +		mp.command("script-message-to clock show-clock no")
 +	end
 +end
- function Timeline:clear_thumbnail() mp.commandv('script-message-to', 'thumbfast', 'clear') end
- 
- function Timeline:on_mbtn_left_down()
-@@ -2818,7 +2835,8 @@ function Timeline:on_prop_time() self:decide_enabled() end
++
+ ---@param fast? boolean
+ function Timeline:set_from_cursor(fast)
+ 	if state.time and state.duration then
+@@ -2830,7 +2848,8 @@ function Timeline:on_prop_time() self:decide_enabled() end
  function Timeline:on_prop_border() self:update_dimensions() end
  function Timeline:on_prop_fullormaxed() self:update_dimensions() end
  function Timeline:on_display() self:update_dimensions() end
@@ -76,7 +77,15 @@ index cfcd47d..bd89222 100644
  function Timeline:on_global_mbtn_left_up()
  	self.pressed = false
  	self:clear_thumbnail()
-@@ -3141,7 +3159,7 @@ function TopBar:update_dimensions()
+@@ -3109,6 +3128,7 @@ function TopBarButton:render()
+ 	return ass
+ end
+ 
++local title_timer = nil
+ --[[ TopBar ]]
+ 
+ ---@class TopBar : Element
+@@ -3153,7 +3173,7 @@ function TopBar:update_dimensions()
  	self.size = state.fullormaxed and options.top_bar_size_fullscreen or options.top_bar_size
  	self.icon_size = round(self.size * 0.5)
  	self.spacing = math.ceil(self.size * 0.25)
@@ -85,7 +94,16 @@ index cfcd47d..bd89222 100644
  	self.button_width = round(self.size * 1.15)
  	self.ay = Elements.window_border.size
  	self.bx = display.width - Elements.window_border.size
-@@ -3180,7 +3198,7 @@ function TopBar:render()
+@@ -3185,6 +3205,8 @@ function TopBar:on_prop_maximized()
+ end
+ 
+ function TopBar:on_display() self:update_dimensions() end
++function TopBar:on_mouse_enter() if title_timer then title_timer:resume() end end
++function TopBar:on_mouse_leave() if title_timer then title_timer:kill() end end
+ 
+ function TopBar:render()
+ 	local visibility = self:get_visibility()
+@@ -3192,7 +3214,7 @@ function TopBar:render()
  	local ass = assdraw.ass_new()
  
  	-- Window title
@@ -94,7 +112,7 @@ index cfcd47d..bd89222 100644
  		local bg_margin = math.floor((self.size - self.font_size) / 4)
  		local padding = self.font_size / 2
  		local title_ax = self.ax + bg_margin
-@@ -3188,7 +3206,7 @@ function TopBar:render()
+@@ -3200,7 +3222,7 @@ function TopBar:render()
  		local max_bx = self.title_bx - self.spacing
  
  		-- Playlist position
@@ -103,22 +121,37 @@ index cfcd47d..bd89222 100644
  			local text = state.playlist_pos .. '' .. state.playlist_count
  			local formatted_text = '{\\b1}' .. state.playlist_pos .. '{\\b0\\fs' .. self.font_size * 0.9 .. '}/'
  				.. state.playlist_count
-@@ -3202,7 +3220,7 @@ function TopBar:render()
+@@ -3214,7 +3236,7 @@ function TopBar:render()
  
  		-- Title
  		if max_bx - title_ax > self.font_size * 3 then
 -			local text = state.title or 'n/a'
-+			local text = state.title and mp.command_native({"expand-text", state.title}):gsub("\\n", " "):gsub("\\$", ""):gsub("{","\\{")  or 'mpv'
++			local text = state.title or 'mpv'
  			local bx = math.min(max_bx, title_ax + text_width_estimate(text, self.font_size) + padding * 2)
  			local by = self.by - bg_margin
  			ass:rect(title_ax, title_ay, bx, by, {
-@@ -4273,8 +4291,7 @@ mp.observe_property('mouse-pos', 'native', function(_, mouse)
+@@ -4283,7 +4305,6 @@ mp.observe_property('mouse-pos', 'native', function(_, mouse)
  end)
  mp.observe_property('osc', 'bool', function(name, value) if value == true then mp.set_property('osc', 'no') end end)
  function update_title(title_template)
 -	if title_template:sub(-6) == ' - mpv' then title_template = title_template:sub(1, -7) end
--	set_state('title', mp.command_native({'expand-text', title_template}))
-+	set_state('title', title_template)
+ 	set_state('title', ass_escape(mp.command_native({'expand-text', title_template})))
  end
  mp.register_event('file-loaded', function()
- 	set_state('path', normalize_path(mp.get_property_native('path')))
+@@ -4298,13 +4319,14 @@ mp.register_event('end-file', function(event)
+ 	end
+ end)
+ do
+-	local hot_keywords = {'time', 'percent'}
+-	local timer = mp.add_periodic_timer(0.9, function() update_title(mp.get_property_native('title')) end)
++	local hot_keywords = {'pause', 'time', 'percent'}
++	local timer = mp.add_periodic_timer(0.1, function() update_title(mp.get_property_native('title')) end)
+ 	timer:kill()
+ 	mp.observe_property('title', 'string', function(_, title)
+ 		update_title(title)
+ 		-- Enable periodic updates for templates with hot variables
+ 		local is_hot = itable_find(hot_keywords, function(var) return string.find(title or '', var) ~= nil end)
++		if is_hot then title_timer = timer return end
+ 		if is_hot then timer:resume() else timer:kill() end
+ 	end)
+ end

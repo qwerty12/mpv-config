@@ -1,5 +1,5 @@
---[[ uosc 4.2.0 - 2022-Oct-02 | https://github.com/tomasklaen/uosc ]]
-local uosc_version = '4.2.0'
+--[[ uosc 4.3.0 - 2022-Oct-11 | https://github.com/tomasklaen/uosc ]]
+local uosc_version = '4.3.0'
 
 local assdraw = require('mp.assdraw')
 local opt = require('mp.options')
@@ -249,21 +249,20 @@ local fgt, bgt = serialize_rgba(options.foreground_text).color, serialize_rgba(o
 
 local function create_default_menu()
 	return {
-		{title = 'Open file', value = 'script-binding uosc/open-file'},
-		{title = 'Playlist', value = 'script-binding uosc/playlist'},
-		{title = 'Chapters', value = 'script-binding uosc/chapters'},
-		{title = 'Subtitle tracks', value = 'script-binding uosc/subtitles'},
+		{title = 'Subtitles', value = 'script-binding uosc/subtitles'},
 		{title = 'Audio tracks', value = 'script-binding uosc/audio'},
 		{title = 'Stream quality', value = 'script-binding uosc/stream-quality'},
+		{title = 'Playlist', value = 'script-binding uosc/items'},
+		{title = 'Chapters', value = 'script-binding uosc/chapters'},
 		{title = 'Navigation', items = {
 			{title = 'Next', hint = 'playlist or file', value = 'script-binding uosc/next'},
 			{title = 'Prev', hint = 'playlist or file', value = 'script-binding uosc/prev'},
 			{title = 'Delete file & Next', value = 'script-binding uosc/delete-file-next'},
 			{title = 'Delete file & Prev', value = 'script-binding uosc/delete-file-prev'},
 			{title = 'Delete file & Quit', value = 'script-binding uosc/delete-file-quit'},
+			{title = 'Open file', value = 'script-binding uosc/open-file'},
 		},},
 		{title = 'Utils', items = {
-			{title = 'Load subtitles', value = 'script-binding uosc/load-subtitles'},
 			{title = 'Aspect ratio', items = {
 				{title = 'Default', value = 'set video-aspect-override "-1"'},
 				{title = '16:9', value = 'set video-aspect-override "16:9"'},
@@ -303,11 +302,16 @@ local config = {
 		local by_id = {}
 
 		for line in io.lines(input_conf_path) do
-			local key, command, title = string.match(line, '%s*([%S]+)%s+(.-)%s+#!%s*(.-)%s*$')
-			if not key then
-				key, command, title = string.match(line, '%s*([%S]+)%s+(.-)%s+#menu:%s*(.-)%s*$')
+			local key, command, comment = string.match(line, '%s*([%S]+)%s+(.-)%s+#%s*(.-)%s*$')
+			local title = ''
+			if comment then
+				local comments = split(comment, '#')
+				local titles = itable_filter(comments, function(v, i) return v:match('^!') or v:match('^menu:') end)
+				if titles and #titles > 0 then
+					title = titles[1]:match('^!%s*(.*)%s*') or titles[1]:match('^menu:%s*(.*)%s*')
+				end
 			end
-			if key then
+			if title ~= '' then
 				local is_dummy = key:sub(1, 1) == '#'
 				local submenu_id = ''
 				local target_menu = main_menu
@@ -452,6 +456,7 @@ local state = {
 	hidpi_scale = 1,
 }
 local thumbnail = {width = 0, height = 0, disabled = false}
+local external = {} -- Properties set by external scripts
 
 --[[ HELPERS ]]
 
@@ -2551,12 +2556,14 @@ function CycleButton:init(id, props)
 	self.current_state_index = 1
 	self.on_click = function()
 		local new_state = self.states[self.current_state_index + 1] or self.states[1]
-		if is_state_prop then
-			local new_value = new_state.value
-			if itable_index_of({'yes', 'no'}, new_state.value) then new_value = new_value == 'yes' end
+		local new_value = new_state.value
+		if self.owner then
+			mp.commandv('script-message-to', self.owner, 'set', self.prop, new_value)
+		elseif is_state_prop then
+			if itable_index_of({'yes', 'no'}, new_value) then new_value = new_value == 'yes' end
 			set_state(self.prop, new_value)
 		else
-			mp.set_property(self.prop, new_state.value)
+			mp.set_property(self.prop, new_value)
 		end
 	end
 
@@ -2569,9 +2576,14 @@ function CycleButton:init(id, props)
 		request_render()
 	end
 
-	-- Built in state props
-	if is_state_prop then
+	local prop_parts = split(self.prop, '@')
+	if #prop_parts == 2 then -- External prop with a script owner
+		self.prop, self.owner = prop_parts[1], prop_parts[2]
+		self['on_external_prop_' .. self.prop] = function(_, value) self.handle_change(self.prop, value) end
+		self.handle_change(self.prop, external[self.prop])
+	elseif is_state_prop then -- uosc's state props
 		self['on_prop_' .. self.prop] = function(self, value) self.handle_change(self.prop, value) end
+		self.handle_change(self.prop, state[self.prop])
 	else
 		mp.observe_property(self.prop, 'string', self.handle_change)
 	end
@@ -2809,12 +2821,6 @@ function Timeline:get_time_at_x(x)
 	return state.duration * progress
 end
 
----@param fast? boolean
-function Timeline:set_from_cursor(fast)
-	if state.time and state.duration then
-		mp.commandv('seek', self:get_time_at_x(cursor.x), fast and 'absolute+keyframes' or 'absolute+exact')
-	end
-end
 function show_clock(val)
 	if val then
 		if state.fullscreen then
@@ -2822,6 +2828,13 @@ function show_clock(val)
 		end
 	else
 		mp.command("script-message-to clock show-clock no")
+	end
+end
+
+---@param fast? boolean
+function Timeline:set_from_cursor(fast)
+	if state.time and state.duration then
+		mp.commandv('seek', self:get_time_at_x(cursor.x), fast and 'absolute+keyframes' or 'absolute+exact')
 	end
 end
 function Timeline:clear_thumbnail() mp.commandv('script-message-to', 'thumbfast', 'clear') end
@@ -3054,7 +3067,7 @@ function Timeline:render()
 			local thumb_y = round(tooltip_anchor.ay * scale_y - thumb_y_margin - thumb_height)
 			local ax, ay = (thumb_x - border) / scale_x, (thumb_y - border) / scale_y
 			local bx, by = (thumb_x + thumb_width + border) / scale_x, (thumb_y + thumb_height + border) / scale_y
-			ass:rect(ax, ay, bx, by, {color = bg, border = 1, border_color = fg, border_opacity = 0.1, radius = 2})
+			ass:rect(ax, ay, bx, by, {color = bg, border = 1, border_color = fg, border_opacity = 0.08, radius = 2})
 			mp.commandv('script-message-to', 'thumbfast', 'thumb', hovered_seconds, thumb_x, thumb_y)
 			tooltip_anchor.ax, tooltip_anchor.bx, tooltip_anchor.ay = ax, bx, ay
 		end
@@ -3115,6 +3128,7 @@ function TopBarButton:render()
 	return ass
 end
 
+local title_timer = nil
 --[[ TopBar ]]
 
 ---@class TopBar : Element
@@ -3191,6 +3205,8 @@ function TopBar:on_prop_maximized()
 end
 
 function TopBar:on_display() self:update_dimensions() end
+function TopBar:on_mouse_enter() if title_timer then title_timer:resume() end end
+function TopBar:on_mouse_leave() if title_timer then title_timer:kill() end end
 
 function TopBar:render()
 	local visibility = self:get_visibility()
@@ -3220,7 +3236,7 @@ function TopBar:render()
 
 		-- Title
 		if max_bx - title_ax > self.font_size * 3 then
-			local text = state.title and mp.command_native({"expand-text", state.title}):gsub("\\n", " "):gsub("\\$", ""):gsub("{","\\{")  or 'mpv'
+			local text = state.title or 'mpv'
 			local bx = math.min(max_bx, title_ax + text_width_estimate(text, self.font_size) + padding * 2)
 			local by = self.by - bg_margin
 			ass:rect(title_ax, title_ay, bx, by, {
@@ -3238,12 +3254,12 @@ function TopBar:render()
 			local font_size = self.font_size * 0.8
 			local height = font_size * 1.5
 			local text = '└ ' .. state.current_chapter.index .. ': ' .. state.current_chapter.title
-			local ax, by = title_ax + padding / 2, title_ay + height
+			local by = title_ay + height
 			local bx = math.min(max_bx, title_ax + text_width_estimate(text, font_size) + padding * 2)
-			ass:rect(ax, title_ay, bx, by, {
+			ass:rect(title_ax, title_ay, bx, by, {
 				color = bg, opacity = visibility * options.top_bar_title_opacity, radius = 2,
 			})
-			ass:txt(ax + padding, title_ay + height / 2, 4, '{\\i1}' .. text .. '{\\i0}', {
+			ass:txt(title_ax + padding, title_ay + height / 2, 4, '{\\i1}' .. text .. '{\\i0}', {
 				size = font_size, wrap = 2, color = bgt, border = 1, border_color = bg, opacity = visibility * 0.8,
 				clip = string.format('\\clip(%d, %d, %d, %d)', title_ax, title_ay, bx, by),
 			})
@@ -3448,7 +3464,9 @@ function Controls:register_badge_updater(badge, element)
 			return count
 		end
 	else
-		if prop:sub(1, 1) == '@' then prop, is_external_prop = prop:sub(2), true end
+		local parts = split(prop, '@')
+		-- Support both new `prop@owner` and old `@prop` syntaxes
+		if #parts > 1 then prop, is_external_prop = parts[1] ~= '' and parts[1] or parts[2], true end
 		serializer = function(value) return value and (type(value) == 'table' and #value or tostring(value)) or nil end
 	end
 
@@ -4261,26 +4279,22 @@ end
 if options.click_threshold > 0 then
 	-- Executes custom command for clicks shorter than `options.click_threshold`
 	-- while filtering out double clicks.
-	local duration_seconds = options.click_threshold / 1000
-	local last_click = 0
-	mp.add_key_binding('mbtn_left', 'uosc_mouse', function(tab)
-		if tab.event == 'up' then
-			local delta = mp.get_time() - last_click
-			-- in windowed mode the up event comes shortly after the down event, ignore
-			if delta > 0.01 and delta < duration_seconds then
-				last_click = 0
-				mp.command(options.click_command)
-			end
-		else
-			last_click = mp.get_time()
-		end
-	end, {complex = true})
-	mp.observe_property('mouse-pos', 'native', function(_, mouse)
-		if mouse.hover and mp.get_time() - last_click < duration_seconds then
-			last_click = 0
-			mp.command(options.click_command)
-		end
+	local click_time = options.click_threshold / 1000
+	local doubleclick_time = mp.get_property_native('input-doubleclick-time') / 1000
+	local last_down, last_up = 0, 0
+	local click_timer = mp.add_timeout(math.max(click_time, doubleclick_time), function()
+		local delta = last_up - last_down
+		if delta > 0 and delta < click_time and delta > 0.02 then mp.command(options.click_command) end
 	end)
+	click_timer:kill()
+	mp.set_key_bindings({{'mbtn_left',
+		function() last_up = mp.get_time() end,
+		function()
+			last_down = mp.get_time()
+			if click_timer:is_enabled() then click_timer:kill() else click_timer:resume() end
+		end,
+	},}, 'mouse_movement', 'force')
+	mp.enable_key_bindings('mouse_movement', 'allow-vo-dragging+allow-hide-cursor')
 end
 
 mp.observe_property('mouse-pos', 'native', function(_, mouse)
@@ -4291,7 +4305,7 @@ mp.observe_property('mouse-pos', 'native', function(_, mouse)
 end)
 mp.observe_property('osc', 'bool', function(name, value) if value == true then mp.set_property('osc', 'no') end end)
 function update_title(title_template)
-	set_state('title', title_template)
+	set_state('title', ass_escape(mp.command_native({'expand-text', title_template})))
 end
 mp.register_event('file-loaded', function()
 	set_state('path', normalize_path(mp.get_property_native('path')))
@@ -4304,10 +4318,18 @@ mp.register_event('end-file', function(event)
 		handle_file_end()
 	end
 end)
-mp.observe_property('title', 'string', function(_, title)
-	-- Don't change title if there is currently none
-	if state.title then update_title(title) end
-end)
+do
+	local hot_keywords = {'pause', 'time', 'percent'}
+	local timer = mp.add_periodic_timer(0.1, function() update_title(mp.get_property_native('title')) end)
+	timer:kill()
+	mp.observe_property('title', 'string', function(_, title)
+		update_title(title)
+		-- Enable periodic updates for templates with hot variables
+		local is_hot = itable_find(hot_keywords, function(var) return string.find(title or '', var) ~= nil end)
+		if is_hot then title_timer = timer return end
+		if is_hot then timer:resume() else timer:kill() end
+	end)
+end
 mp.observe_property('playback-time', 'number', create_state_setter('time', function()
 	-- Create a file-end event that triggers right before file ends
 	file_end_timer:kill()
@@ -4798,7 +4820,8 @@ mp.register_script_message('thumbfast-info', function(json)
 	end
 end)
 mp.register_script_message('set', function(name, value)
-	Elements:trigger('external_prop_' .. name, utils.parse_json(value))
+	external[name] = value
+	Elements:trigger('external_prop_' .. name, value)
 end)
 mp.register_script_message('toggle-elements', function(elements) Elements:toggle(split(elements, ' *, *')) end)
 mp.register_script_message('flash-elements', function(elements) Elements:flash(split(elements, ' *, *')) end)

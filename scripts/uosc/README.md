@@ -4,7 +4,7 @@
 		Feature-rich minimalist proximity-based UI for <a href="https://mpv.io">MPV player</a>.
 	</p>
 	<br/>
-	<a href="https://user-images.githubusercontent.com/47283320/192066616-4a51b114-4383-437d-9124-03f4d9937427.webm"><img src="https://user-images.githubusercontent.com/47283320/193610246-11c75221-d516-4a37-aac0-9ab37d827b99.png" alt="Preview screenshot"></a>
+	<a href="https://user-images.githubusercontent.com/47283320/195073006-bfa72bcc-89d2-4dc7-b8dc-f3c13273910c.webm"><img src="https://user-images.githubusercontent.com/47283320/195072935-44d591d9-00bb-4a55-8795-9cf81f65d397.png" alt="Preview screenshot"></a>
 </div>
 
 Most notable features:
@@ -304,23 +304,22 @@ Define a folder without defining any of its contents:
 
 Example context menu:
 
-This is the default pre-configured menu if none is defined in your `input.conf`, but with added shortcuts.
+This is the default pre-configured menu if none is defined in your `input.conf`, but with added shortcuts. To both pause & move the window with left mouse button, so that you can have the menu on the right one, enable `click_threshold` in `uosc.conf` (see default `uosc.conf` for example/docs).
 
 ```
 menu        script-binding uosc/menu
 mbtn_right  script-binding uosc/menu
-o           script-binding uosc/open-file          #! Open file
-P           script-binding uosc/playlist           #! Playlist
-C           script-binding uosc/chapters           #! Chapters
-S           script-binding uosc/subtitles          #! Subtitle tracks
-A           script-binding uosc/audio              #! Audio tracks
+s           script-binding uosc/subtitles          #! Subtitles
+a           script-binding uosc/audio              #! Audio tracks
 q           script-binding uosc/stream-quality     #! Stream quality
+p           script-binding uosc/items              #! Playlist
+c           script-binding uosc/chapters           #! Chapters
 >           script-binding uosc/next               #! Navigation > Next
 <           script-binding uosc/prev               #! Navigation > Prev
 alt+>       script-binding uosc/delete-file-next   #! Navigation > Delete file & Next
 alt+<       script-binding uosc/delete-file-prev   #! Navigation > Delete file & Prev
 alt+esc     script-binding uosc/delete-file-quit   #! Navigation > Delete file & Quit
-alt+s       script-binding uosc/load-subtitles     #! Utils > Load subtitles
+o           script-binding uosc/open-file          #! Navigation > Open file
 #           set video-aspect-override "-1"         #! Utils > Aspect ratio > Default
 #           set video-aspect-override "16:9"       #! Utils > Aspect ratio > 16:9
 #           set video-aspect-override "4:3"        #! Utils > Aspect ratio > 4:3
@@ -511,7 +510,7 @@ end)
 
 ### `set <prop> <value>`
 
-Tell **uosc** to set an external property to this value. Currently, this is only used to display control button badges:
+Tell **uosc** to set an external property to this value. Currently, this is only used to set/display control button active state and badges:
 
 In your script, set the value of `foo` to `1`.
 
@@ -519,10 +518,30 @@ In your script, set the value of `foo` to `1`.
 mp.commandv('script-message-to', 'uosc', 'set', 'foo', 1)
 ```
 
-This property can now be used as a control button badge by prefixing it with `@`.
+`foo` can now be used as a `toggle` or `cycle` property by specifying its owner with a `@{script_name}` suffix:
 
 ```
-controls=command:icon_name:command_name#@foo?My foo button
+toggle:icon_name:foo@script_name
+cycle:icon_name:foo@script_name:no/yes!
+```
+
+If user clicks this `toggle` or `cycle` button, uosc will send a `set` message back to the script owner. You can then listen to this message, do what you need with the new value, and update uosc state accordingly:
+
+```lua
+-- Send initial value so that the button has a correct active state
+mp.commandv('script-message-to', 'uosc', 'set', 'foo', 'yes')
+-- Listen for changes coming from `toggle` or `cycle` button
+mp.register_script_message('set', function(prop, value)
+    -- ... do something with `value`
+    -- Update uosc external prop
+    mp.commandv('script-message-to', 'uosc', 'set', 'foo', value)
+end)
+```
+
+External properties can also be used as control button badges:
+
+```
+controls=command:icon_name:command_name#foo@script_name?My foo button
 ```
 
 ## Why _uosc_?

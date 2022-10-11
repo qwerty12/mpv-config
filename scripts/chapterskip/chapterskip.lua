@@ -51,11 +51,11 @@ local skipped = {}
 local parsed = {}
 
 local function set_uosc_property()
-    mp.commandv('script-message-to', 'uosc', 'set', 'chapterskip_enabled', options.enabled and 1 or 0)
+    mp.commandv('script-message-to', 'uosc', 'set', 'chapterskip_enabled', options.enabled and 'yes' or 'no')
 end
 
-local function toggle_chapterskip()
-    options.enabled = not options.enabled
+local function set_chapterskip(_, value)
+    options.enabled = value == "yes"
     --if options.verbose then
     --    mp.osd_message("chapterskip " .. (options.enabled and "enabled" or "disabled"))
     --end
@@ -108,5 +108,5 @@ end
 mp.observe_property("chapter", "number", chapterskip)
 mp.register_event("file-loaded", function() skipped = {} end)
 mp.options.read_options(options, "chapterskip")
-mp.register_script_message("cs-toggle", toggle_chapterskip)
+mp.register_script_message("set", set_chapterskip)
 set_uosc_property()
