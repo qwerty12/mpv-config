@@ -22,6 +22,7 @@ mp.add_forced_key_binding("s", "subsel", function() mp.command(cycle_sub and "cy
 local function select_sdh_if_no_ext_sub()
     local current_sid = mp.get_property_number("sid", -1)
     local new_sid = -1
+    local first_sid = -1
     local all_tracks = mp.get_property_native("track-list", {})
     for i = 1, #all_tracks do
         local track = all_tracks[i]
@@ -30,9 +31,17 @@ local function select_sdh_if_no_ext_sub()
                 return
             end
 
-            if track.title == "SDH" and track.lang:find("^eng?") ~= nil then
+            if (track.title == "SDH" or track["hearing-impaired"] == true) and track["lang"]:find("^eng?") ~= nil then
                 new_sid = track.id
+            elseif first_sid == -1 then
+                first_sid = track.id
             end
+        end
+    end
+
+    if new_sid == -1 and first_sid ~= -1 then
+        if all_tracks[first_sid]["lang"] == nil then
+            new_sid = first_sid
         end
     end
 
