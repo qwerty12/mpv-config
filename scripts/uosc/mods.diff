@@ -1,12 +1,12 @@
 diff --git a/scripts/uosc.lua b/scripts/uosc.lua
-index 0c6dfd3..54d0c84 100644
+index a474273..40105f2 100644
 --- a/scripts/uosc.lua
 +++ b/scripts/uosc.lua
 @@ -848,13 +848,20 @@ function decide_navigation_in_list(list, current_index, delta)
  	return new_index, list[new_index]
  end
  
-+function write_watch_later()
++local function write_watch_later()
 +    if mp.get_property_bool("save-position-on-quit") then
 +        mp.command("script-message-to auto_save_state skip-delete-state")
 +        mp.command("write-watch-later-config")
@@ -33,7 +33,7 @@ index 0c6dfd3..54d0c84 100644
  	end
  	return false
  end
-@@ -2707,7 +2714,7 @@ function PauseIndicator:render()
+@@ -2715,7 +2722,7 @@ function PauseIndicator:render()
  	end
  
  	-- Icon
@@ -42,19 +42,19 @@ index 0c6dfd3..54d0c84 100644
  	size = size + size * (1 - self.opacity)
  
  	if self.paused then
-@@ -2736,6 +2743,7 @@ function BufferingIndicator:init()
+@@ -2744,6 +2751,7 @@ function BufferingIndicator:init()
  end
  
  function BufferingIndicator:decide_enabled()
-+	if not state.is_stream then self.enabled = false end
++	if not state.is_stream then self.enabled = false return end
  	local cache = state.cache_underrun or state.cache_buffering and state.cache_buffering < 100
  	local player = state.core_idle and not state.eof_reached
  	if self.enabled then
-@@ -2839,6 +2847,16 @@ function Timeline:get_time_at_x(x)
+@@ -2847,6 +2855,16 @@ function Timeline:get_time_at_x(x)
  	return state.duration * progress
  end
  
-+function show_clock(val)
++local function show_clock(val)
 +	if val then
 +		if state.fullscreen then
 +			mp.command("script-message-to clock show-clock yes")
@@ -67,7 +67,7 @@ index 0c6dfd3..54d0c84 100644
  ---@param fast? boolean
  function Timeline:set_from_cursor(fast)
  	if state.time and state.duration then
-@@ -2856,7 +2874,8 @@ function Timeline:on_prop_time() self:decide_enabled() end
+@@ -2864,7 +2882,8 @@ function Timeline:on_prop_time() self:decide_enabled() end
  function Timeline:on_prop_border() self:update_dimensions() end
  function Timeline:on_prop_fullormaxed() self:update_dimensions() end
  function Timeline:on_display() self:update_dimensions() end
@@ -77,7 +77,7 @@ index 0c6dfd3..54d0c84 100644
  function Timeline:on_global_mbtn_left_up()
  	self.pressed = false
  	self:clear_thumbnail()
-@@ -3179,7 +3198,7 @@ function TopBar:update_dimensions()
+@@ -3187,7 +3206,7 @@ function TopBar:update_dimensions()
  	self.size = state.fullormaxed and options.top_bar_size_fullscreen or options.top_bar_size
  	self.icon_size = round(self.size * 0.5)
  	self.spacing = math.ceil(self.size * 0.25)
@@ -86,7 +86,7 @@ index 0c6dfd3..54d0c84 100644
  	self.button_width = round(self.size * 1.15)
  	self.ay = Elements.window_border.size
  	self.bx = display.width - Elements.window_border.size
-@@ -3218,7 +3237,7 @@ function TopBar:render()
+@@ -3226,7 +3245,7 @@ function TopBar:render()
  	local ass = assdraw.ass_new()
  
  	-- Window title
@@ -95,7 +95,7 @@ index 0c6dfd3..54d0c84 100644
  		local bg_margin = math.floor((self.size - self.font_size) / 4)
  		local padding = self.font_size / 2
  		local title_ax = self.ax + bg_margin
-@@ -3226,7 +3245,7 @@ function TopBar:render()
+@@ -3234,7 +3253,7 @@ function TopBar:render()
  		local max_bx = self.title_bx - self.spacing
  
  		-- Playlist position
@@ -104,7 +104,16 @@ index 0c6dfd3..54d0c84 100644
  			local text = state.playlist_pos .. '' .. state.playlist_count
  			local formatted_text = '{\\b1}' .. state.playlist_pos .. '{\\b0\\fs' .. self.font_size * 0.9 .. '}/'
  				.. state.playlist_count
-@@ -4320,7 +4339,6 @@ end)
+@@ -3247,7 +3266,7 @@ function TopBar:render()
+ 		end
+ 
+ 		-- Title
+-		local text = state.title
++		local text = state.title or 'mpv'
+ 		if max_bx - title_ax > self.font_size * 3 and text and text ~= '' then
+ 			local bx = math.min(max_bx, title_ax + text_width_estimate(text, self.font_size) + padding * 2)
+ 			local by = self.by - bg_margin
+@@ -4329,7 +4348,6 @@ end)
  do
  	local template = nil
  	function update_title()

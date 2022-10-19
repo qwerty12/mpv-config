@@ -848,7 +848,7 @@ function decide_navigation_in_list(list, current_index, delta)
 	return new_index, list[new_index]
 end
 
-function write_watch_later()
+local function write_watch_later()
     if mp.get_property_bool("save-position-on-quit") then
         mp.command("script-message-to auto_save_state skip-delete-state")
         mp.command("write-watch-later-config")
@@ -2751,7 +2751,7 @@ function BufferingIndicator:init()
 end
 
 function BufferingIndicator:decide_enabled()
-	if not state.is_stream then self.enabled = false end
+	if not state.is_stream then self.enabled = false return end
 	local cache = state.cache_underrun or state.cache_buffering and state.cache_buffering < 100
 	local player = state.core_idle and not state.eof_reached
 	if self.enabled then
@@ -2855,7 +2855,7 @@ function Timeline:get_time_at_x(x)
 	return state.duration * progress
 end
 
-function show_clock(val)
+local function show_clock(val)
 	if val then
 		if state.fullscreen then
 			mp.command("script-message-to clock show-clock yes")
