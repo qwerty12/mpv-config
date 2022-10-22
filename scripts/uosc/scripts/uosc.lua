@@ -738,7 +738,7 @@ end
 -- Check if path is a protocol, such as `http://...`
 ---@param path string
 function is_protocol(path)
-	return type(path) == 'string' and path:match('^%a[%a%d-_]+://') ~= nil
+	return type(path) == 'string' and (path:match('^%a[%a%d-_]+://') ~= nil or path:match('^%a[%a%d-_]+:\\?') ~= nil)
 end
 
 ---@param path string
@@ -2677,6 +2677,7 @@ function PauseIndicator:init()
 	self.opacity = 0
 
 	mp.observe_property('pause', 'bool', function(_, paused)
+		if Elements.timeline.pressed then return end
 		if options.pause_indicator == 'flash' then
 			if self.paused == paused then return end
 			self:flash()
@@ -2875,6 +2876,8 @@ function Timeline:clear_thumbnail() mp.commandv('script-message-to', 'thumbfast'
 
 function Timeline:on_mbtn_left_down()
 	self.pressed = true
+	self.pressed_pause = state.pause
+	mp.set_property_native('pause', true)
 	self:set_from_cursor()
 end
 function Timeline:on_prop_duration() self:decide_enabled() end
@@ -2885,7 +2888,10 @@ function Timeline:on_display() self:update_dimensions() end
 function Timeline:on_mouse_enter() show_clock(true) end
 function Timeline:on_mouse_leave() self:clear_thumbnail() show_clock(false) end
 function Timeline:on_global_mbtn_left_up()
-	self.pressed = false
+	if self.pressed then
+		mp.set_property_native('pause', self.pressed_pause)
+		self.pressed = false
+	end
 	self:clear_thumbnail()
 end
 function Timeline:on_global_mouse_leave()

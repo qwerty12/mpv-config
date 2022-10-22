@@ -288,7 +288,7 @@ o.open_list_keybind = utils.parse_json(o.open_list_keybind)
 o.list_filter_jump_keybind = utils.parse_json(o.list_filter_jump_keybind)
 o.list_ignored_keybind = utils.parse_json(o.list_ignored_keybind)
 
-utils.shared_script_property_set("menu-open", "no")
+utils.shared_script_property_set("smartcopypaste-menu-open", "no")
 
 if string.lower(o.log_path) == '/:dir%mpvconf%' then
 	o.log_path = mp.find_config_file('.')
@@ -2026,6 +2026,7 @@ function mark_chapter()
 	local chapters_time = {}
 	
 	get_list_contents()
+	if not list_contents or not list_contents[1] then return end
 	for i = 1, #list_contents do
 		if list_contents[i].found_path == filePath and tonumber(list_contents[i].found_time) > 0 then
 			table.insert(chapters_time, tonumber(list_contents[i].found_time))
