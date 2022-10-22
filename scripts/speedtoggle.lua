@@ -1,7 +1,12 @@
--- https://github.com/yuzhen1024/quick_speed_toggle/blob/master/speedtoggle.lua @ 8fbfc23a814d985142c2e4b281167d5a7462ce6d
+local ffi = require("ffi")
+ffi.cdef [[
+const char *GetCommandLineA();
+]]
+
 local save_speed = mp.get_property("speed")
 if tonumber(save_speed) == 1 then save_speed = "1.25" end
 
+-- https://github.com/yuzhen1024/quick_speed_toggle/blob/master/speedtoggle.lua
 local function speed_toggle(n)
 	if tonumber(n)==1 then
 		mp.set_property("speed", save_speed)
@@ -59,4 +64,6 @@ local function speed_up_shows()
 		mp.set_property("speed", tonumber(last_observed_speed) ~= 1 and last_observed_speed or "1.25")
 	end
 end
-mp.register_event("file-loaded", speed_up_shows)
+if ffi.string(ffi.C.GetCommandLineA()):find(" --speed=") == nil then
+	mp.register_event("file-loaded", speed_up_shows)
+end
