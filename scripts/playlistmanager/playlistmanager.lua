@@ -456,9 +456,13 @@ end
 function draw_playlist()
   refresh_globals()
   local ass = assdraw.ass_new()
-  ass:pos(settings.text_padding_x, settings.text_padding_y)
   ass:new_event()
   ass:append(settings.style_ass_tags)
+
+  -- TODO: padding should work even on different osd alignments
+  if mp.get_property("osd-align-x") == "left" and mp.get_property("osd-align-y") == "top" then
+    ass:pos(settings.text_padding_x, settings.text_padding_y)
+  end
 
   if settings.playlist_header ~= "" then
     ass:append(parse_header(settings.playlist_header).."\\N")
@@ -941,7 +945,7 @@ function shuffleplaylist()
 end
 
 function bind_keys(keys, name, func, opts)
-  if not keys then
+  if keys == nil or keys == "" then
     mp.add_key_binding(keys, name, func, opts)
     return
   end
@@ -954,7 +958,7 @@ function bind_keys(keys, name, func, opts)
 end
 
 function bind_keys_forced(keys, name, func, opts)
-  if not keys then
+  if keys == nil or keys == "" then
     mp.add_forced_key_binding(keys, name, func, opts)
     return
   end
@@ -967,7 +971,7 @@ function bind_keys_forced(keys, name, func, opts)
 end
 
 function unbind_keys(keys, name)
-  if not keys then
+  if keys == nil or keys == "" then
     mp.remove_key_binding(name)
     return
   end
@@ -1139,5 +1143,5 @@ bind_keys(settings.key_loadfiles, "loadfiles", playlist)
 bind_keys(settings.key_saveplaylist, "saveplaylist", activate_playlist_save)
 bind_keys(settings.key_showplaylist, "showplaylist", toggle_playlist)
 
-mp.register_event("file-loaded", on_loaded)
+mp.register_event("start-file", on_loaded)
 mp.register_event("end-file", on_closed)
