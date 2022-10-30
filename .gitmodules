@@ -1,0 +1,3 @@
+[submodule "scripts/mpv-taskbar-buttons"]
+	path = scripts/mpv-taskbar-buttons
+	url = https://github.com/qwerty12/mpv-taskbar-buttons.git
