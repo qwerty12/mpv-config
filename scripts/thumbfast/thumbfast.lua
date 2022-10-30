@@ -31,7 +31,7 @@ local options = {
     -- Enable hardware decoding
     hwdec = false,
 
-    -- Windows only: don't use subprocess to communicate with socket
+    -- Windows only: use native Windows API to write to pipe (requires LuaJIT)
     use_lua_io = false
 }
 
@@ -47,7 +47,7 @@ if options.use_lua_io then
             ffi = ffi,
             C = ffi.C,
             bit = require("bit"),
-            lpwszSocket = "",
+            socket_wc = "",
 
             -- WinAPI constants
             CP_UTF8 = 65001,
@@ -83,7 +83,7 @@ if options.use_lua_io then
                     end
                 end
             end
-            return nil
+            return ""
         end
 
     else
@@ -207,7 +207,13 @@ options.socket = options.socket .. unique
 options.thumbnail = options.thumbnail .. unique
 
 if options.use_lua_io then
-    winapi.lpwszSocket = winapi.MultiByteToWideChar("\\\\.\\pipe\\" .. options.socket)
+    if os_name == "Windows" then
+        winapi.socket_wc = winapi.MultiByteToWideChar("\\\\.\\pipe\\" .. options.socket)
+    end
+
+    if winapi.socket_wc == "" then
+        options.use_lua_io = false
+    end
 end
 
 local mpv_path = "mpv"
@@ -338,8 +344,8 @@ end
 local function run(command)
     if not spawned then return end
 
-    if options.use_lua_io and os_name == "Windows" then
-        local hPipe = winapi.C.CreateFileW(winapi.lpwszSocket, winapi.GENERIC_WRITE, 0, nil, winapi.OPEN_EXISTING, winapi._createfile_pipe_flags, nil)
+    if options.use_lua_io then
+        local hPipe = winapi.C.CreateFileW(winapi.socket_wc, winapi.GENERIC_WRITE, 0, nil, winapi.OPEN_EXISTING, winapi._createfile_pipe_flags, nil)
         if hPipe ~= winapi.INVALID_HANDLE_VALUE then
             local buf = command .. "\n"
             winapi.C.SetNamedPipeHandleState(hPipe, winapi.PIPE_NOWAIT, nil, nil)
