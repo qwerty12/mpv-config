@@ -126,6 +126,10 @@ local o = {
 opt.read_options(o, 'file_browser')
 utils.shared_script_property_set("file_browser-open", "no")
 
+package.path = mp.command_native({"expand-path", o.module_directory}).."/?.lua;"..package.path
+local success, input = pcall(require, "user-input-module")
+if not success then input = nil end
+
 
 
 --------------------------------------------------------------------------------------------------------
@@ -160,8 +164,6 @@ local parse_state_API = {}
 --the osd_overlay API was not added until v0.31. The expand-path command was not added until 0.30
 local ass = mp.create_osd_overlay("ass-events")
 if not ass then return msg.error("Script requires minimum mpv version 0.31") end
-
-package.path = mp.command_native({"expand-path", o.module_directory}).."/?.lua;"..package.path
 
 local style = {
     global = o.alignment == 0 and "" or ([[{\an%d}]]):format(o.alignment),
@@ -579,6 +581,7 @@ function API.evaluate_string(str, name)
     env.msg = API.redirect_table(msg)
     env.utils = API.redirect_table(utils)
     env.fb = API.redirect_table(API)
+    env.input = input and API.redirect_table(input)
 
     local chunk, err
     if setfenv then
@@ -1527,7 +1530,7 @@ code_fns = {
     f = create_item_string(function(_, item, s) return item and API.get_full_path(item, s.directory) or "" end),
     n = create_item_string(function(_, item, _) return item and (item.label or item.name) or "" end),
     i = create_item_string(function(_, item, s) return API.list.indexOf(s.list, item) end),
-    j = create_item_string(function(_, item, s) return API.list.indexOf( API.sort_keys(s.selection) , item) end),
+    j = create_item_string(function(_, item, s) return math.abs(API.list.indexOf( API.sort_keys(s.selection) , item)) end),
 
     p = function(_, _, s) return s.directory or "" end,
     d = function(_, _, s) return (s.directory_label or s.directory):match("([^/]+)/?$") or "" end,
@@ -1631,9 +1634,6 @@ local function run_custom_keybind(cmd, state, co)
         end
 
         if cmd.codes then
-            --the j codes are only for multiselect indexes
-            if cmd.codes.j or cmd.codes.J then return false end
-
             --if the directory is empty, and this command needs to work on an item, then abort and fallback to the next command
             if not state.list[state.selected] and has_item_codes(cmd.codes) then return false end
         end
@@ -2170,12 +2170,11 @@ local function scan_directory_json(directory, response_str)
     mp.commandv("script-message", response_str, list or "", opts or "")
 end
 
-pcall(function()
-    local input = require "user-input-module"
+if input then
     mp.add_key_binding("Alt+o", "browse-directory/get-user-input", function()
         input.get_user_input(browse_directory, {request_text = "open directory:"})
     end)
-end)
+end
 
 
 
@@ -2185,10 +2184,21 @@ end)
 ------------------------------------------------------------------------------------------
 
 --a helper script message for custom keybinds
+--substitutes any '=>' arguments for 'script-message'
+--makes chaining script-messages much easier
+mp.register_script_message('=>', function(...)
+    local command = table.pack('script-message', ...)
+    for i, v in ipairs(command) do
+        if v == '=>' then command[i] = 'script-message' end
+    end
+    mp.commandv(table.unpack(command))
+end)
+
+--a helper script message for custom keybinds
 --sends a command after the specified delay
 mp.register_script_message('delay-command', function(delay, ...)
     local command = table.pack(...)
-    local success, err = pcall(mp.add_timeout, delay, function() mp.commandv(table.unpack(command)) end)
+    local success, err = pcall(mp.add_timeout, API.evaluate_string('return '..delay), function() mp.commandv(table.unpack(command)) end)
     if not success then return msg.error(err) end
 end)
 
@@ -2218,6 +2228,14 @@ mp.register_script_message('evaluate-expressions', function(...)
 
         mp.commandv(table.unpack(args))
     end)
+end)
+
+--a helper function for custom-keybinds
+--concatenates the command arguments with newlines and runs the
+--string as a statement of code
+mp.register_script_message('run-statement', function(...)
+    local statement = table.concat(table.pack(...), '\n')
+    API.coroutine.run(API.evaluate_string, statement)
 end)
 
 --allows keybinds/other scripts to auto-open specific directories

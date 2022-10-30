@@ -83,7 +83,7 @@ The script will scan every string in the command for the special substitution st
 | %d   | name of the current directory (characters between the last two '/') |
 | %r   | name of the parser for the currently open directory                 |
 | %i   | the 1-based index of the selected item in the list                  |
-| %j   | the 1-based index of the item in a multiselection                   |
+| %j   | the 1-based index of the item in a multiselection - returns 1 for single selections |
 
 Additionally, using the uppercase forms of those codes will send the substituted string through the `string.format("%q", str)` function.
 This adds double quotes around the string and automatically escapes any characters which would break the string encapsulation.
@@ -102,7 +102,6 @@ Example of a command to add an audio track:
 
 Any commands that contain codes representing specific items (`%f`, `%n`, `%i` etc) will
 not be run if no item is selected (for example in an empty directory).
-The `%j` code will similarly cause keybinds to only be run on multiselections.
 In these cases [passthrough](#passthrough-keybinds) rules will apply.
 
 ## Multiselect Commands
@@ -174,7 +173,8 @@ To avoid conflicts custom keybinds use the format: `file_browser/dynamic/custom/
 Expressions are used to evaluate Lua code into a string that can be used for commands.
 These behave similarly to those used for [`profile-cond`](https://mpv.io/manual/master/#conditional-auto-profiles)
 values. In an expression the `mp`, `mp.msg`, and `mp.utils` modules are available as `mp`, `msg`, and `utils` respectively.
-Additionally the file-browser [addon API](addons/addons.md#the-api) is available as `fb`.
+Additionally the file-browser [addon API](addons/addons.md#the-api) is available as `fb` and if [mpv-user-input](https://github.com/CogentRedTester/mpv-user-input)
+is installed then user-input API will be available in `input`.
 
 This example only runs the keybind if the browser is in the Windows C drive or if
 the selected item is a matroska file:
@@ -196,7 +196,7 @@ the selected item is a matroska file:
 
 If the `condition` expression contains any item specific codes (`%F`, `%I`, etc) then it will be
 evaluated on each individual item, otherwise it will evaluated once for the whole keybind.
-If a code is invalid (for example using `%j` when not multiselecting) then the expression returns false.
+If a code is invalid (for example using `%i` in empty directories) then the expression returns false.
 
 There are some utility script messages that extend the power of expressions.
 [`conditional-command`](#conditional-command-condition-command) allows one to specify conditions that
@@ -206,6 +206,19 @@ There is also [`evaluate-expressions`](#evaluate-expressions-command) which allo
 ## Utility Script Messages
 
 There are a small number of custom script messages defined by file-browser to support custom keybinds.
+
+### `=> <command...>`
+
+A basic script message that makes it easier to chain multiple utility script messages together.
+Any `=>` string will be substituted for `script-message`.
+
+```json
+{
+    "key": "KP1",
+    "command": ["script-message", "=>", "delay-command", "%j * 2", "=>", "evaluate-expressions", "print-text", "!{%j * 2}"],
+    "multiselect": true
+}
+```
 
 ### `conditional-command [condition] <command...>`
 
@@ -234,6 +247,7 @@ This example only runs if the currently selected item in the browser has a `.mkv
 ### `delay-command [delay] <command...>`
 
 Delays the following command by `[delay]` seconds.
+Delay is an [expression](#expressions).
 
 The following example will send the `print-text` command after 5 seconds:
 
@@ -268,6 +282,41 @@ This example replaces all `/` characters in the path with `\`
 {
     "key": "KP1",
     "command": ["script-message", "evaluate-expressions", "print-text", "!{ string.gsub(%F, '/', '\\\\') }"],
+}
+```
+
+### `run-statement <statement...>`
+
+Runs the following string a as a Lua statement. This is similar to an [expression](#expressions),
+but instead of the code evaluating to a value it must run a series of statements. Basically it allows
+for function bodies to be embedded into custom keybinds. All the same modules are available.
+If multiple strings are sent to the script-message then they will be concatenated together with newlines.
+
+The following keybind will use [mpv-user-input](https://github.com/CogentRedTester/mpv-user-input) to
+rename items in file-browser:
+
+```json
+{
+    "key": "KP1",
+    "command": ["script-message", "run-statement",
+                    "assert(input, 'install mpv-user-input!')",
+
+                    "local line, err = input.get_user_input_co({",
+                                            "id = 'rename-file',",
+                                            "source = 'custom-keybind',",
+                                            "request_text = 'rename file:',",
+                                            "queueable = true,",
+                                            "default_input = %N,",
+                                            "cursor_pos = #(%N) - #fb.get_extension(%N, '')",
+                                        "})",
+
+                    "if not line then return end",
+                    "os.rename(%F, utils.join_path(%P, line))",
+
+                    "fb.rescan()"
+                ],
+    "parser": "file",
+    "multiselect": true
 }
 ```
 

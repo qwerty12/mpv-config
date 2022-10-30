@@ -19,14 +19,6 @@ local options = {
     -- Overlay id
     overlay_id = 42,
 
-    -- Thumbnail interval in seconds, set to 0 to disable (warning: high cpu usage)
-    -- Clamped to min_thumbnails and max_thumbnails
-    interval = 6,
-
-    -- Number of thumbnails
-    min_thumbnails = 6,
-    max_thumbnails = 120,
-
     -- Spawn thumbnailer on file load for faster initial thumbnails
     spawn_first = false,
 
@@ -36,6 +28,9 @@ local options = {
     -- Enable on audio playback
     audio = false,
 
+    -- Enable hardware decoding
+    hwdec = false,
+
     -- Windows only: don't use subprocess to communicate with socket
     use_lua_io = false
 }
@@ -43,10 +38,6 @@ local options = {
 mp.utils = require "mp.utils"
 mp.options = require "mp.options"
 mp.options.read_options(options, "thumbfast")
-
-if options.min_thumbnails < 1 then
-    options.min_thumbnails = 1
-end
 
 local winapi = {}
 if options.use_lua_io then
@@ -100,15 +91,9 @@ if options.use_lua_io then
     end
 end
 
-local os_name = ""
-
-local unique = mp.get_property_native("pid")
-local init = false
-
 local spawned = false
 local network = false
 local disabled = false
-local interval = 0
 
 local x = nil
 local y = nil
@@ -143,11 +128,13 @@ local file_timer = nil
 local file_check_period = 1/60
 local first_file = false
 
-local client_script = '#!/bin/bash\n'..
-'MPV_IPC_FD=0; MPV_IPC_PATH="%s"\n'..
-'trap "kill 0" EXIT\n'..
-'while [[ $# -ne 0 ]]; do case $1 in --mpv-ipc-fd=*) MPV_IPC_FD=${1/--mpv-ipc-fd=/} ;; esac; shift; done\n'..
-'if echo "print-text test" >&"$MPV_IPC_FD"; then echo -n > "$MPV_IPC_PATH"; tail --follow=name "$MPV_IPC_PATH" >&"$MPV_IPC_FD" & while read -r -u "$MPV_IPC_FD"; do :; done; fi'
+local client_script = [=[
+#!/bin/bash
+MPV_IPC_FD=0; MPV_IPC_PATH="%s"
+trap "kill 0" EXIT
+while [[ $# -ne 0 ]]; do case $1 in --mpv-ipc-fd=*) MPV_IPC_FD=${1/--mpv-ipc-fd=/} ;; esac; shift; done
+if echo "print-text test" >&"$MPV_IPC_FD"; then echo -n > "$MPV_IPC_PATH"; tail -f "$MPV_IPC_PATH" >&"$MPV_IPC_FD" & while read -r -u "$MPV_IPC_FD"; do :; done; fi
+]=]
 
 local function get_os()
     local raw_os_name = ""
@@ -194,6 +181,39 @@ local function get_os()
     end
 
     return str_os_name
+end
+
+local os_name = get_os()
+
+if options.socket == "" then
+    if os_name == "Windows" then
+        options.socket = "thumbfast"
+    else
+        options.socket = "/tmp/thumbfast"
+    end
+end
+
+if options.thumbnail == "" then
+    if os_name == "Windows" then
+        options.thumbnail = os.getenv("TEMP").."\\thumbfast.out"
+    else
+        options.thumbnail = "/tmp/thumbfast.out"
+    end
+end
+
+local unique = mp.get_property_native("pid")
+
+options.socket = options.socket .. unique
+options.thumbnail = options.thumbnail .. unique
+
+if options.use_lua_io then
+    winapi.lpwszSocket = winapi.MultiByteToWideChar("\\\\.\\pipe\\" .. options.socket)
+end
+
+local mpv_path = "mpv"
+
+if os_name == "Mac" and unique then
+    mpv_path = string.gsub(mp.command_native({name = "subprocess", playback_only = false, capture_stdout = true, args = {"ps", "-o", "comm=", "-p", tostring(unique)}}).stdout, "[\n\r]", "")
 end
 
 local function vf_string(filters, full)
@@ -272,45 +292,14 @@ local function spawn(time)
         path = open_filename
     end
 
-    if os_name == "" then
-        os_name = get_os()
-    end
-
-    if options.socket == "" then
-        if os_name == "Windows" then
-            options.socket = "thumbfast"
-        else
-            options.socket = "/tmp/thumbfast"
-        end
-    end
-
-    if options.thumbnail == "" then
-        if os_name == "Windows" then
-            options.thumbnail = os.getenv("TEMP").."\\thumbfast.out"
-        else
-            options.thumbnail = "/tmp/thumbfast.out"
-        end
-    end
-
-    if not init then
-        -- ensure uniqueness
-        options.socket = options.socket .. unique
-        options.thumbnail = options.thumbnail .. unique
-        init = true
-    end
-
-    if options.use_lua_io then
-        winapi.lpwszSocket = winapi.MultiByteToWideChar("\\\\.\\pipe\\" .. options.socket)
-    end
-
     remove_thumbnail_files()
 
     local args = {
-        "mpv", path, "--no-config", "--msg-level=all=no", "--idle", "--pause", "--keep-open=always", "--really-quiet", "--no-terminal",
+        mpv_path, path, "--no-config", "--msg-level=all=no", "--idle", "--pause", "--keep-open=always", "--really-quiet", "--no-terminal",
         "--edition="..(mp.get_property_number("edition") or "auto"), "--vid="..(mp.get_property_number("vid") or "auto"), "--no-sub", "--no-audio",
         "--start="..time, "--hr-seek=no",
         "--ytdl-format=worst", "--demuxer-readahead-secs=0", "--demuxer-max-bytes=128KiB",
-        "--vd-lavc-skiploopfilter=all", "--vd-lavc-software-fallback=1", "--vd-lavc-fast",
+        "--vd-lavc-skiploopfilter=all", "--vd-lavc-software-fallback=1", "--vd-lavc-fast", "--vd-lavc-threads=2", "--hwdec="..(options.hwdec and "auto" or "no"),
         "--vf="..vf_string(filters_all, true),
         "--sws-allow-zimg=no", "--sws-fast=yes", "--sws-scaler=fast-bilinear",
         "--video-rotate="..last_rotate,
@@ -374,19 +363,6 @@ local function run(command)
     end
 end
 
-local function thumb_index(thumbtime)
-    return math.floor(thumbtime / interval)
-end
-
-local function index_time(index, thumbtime)
-    if interval > 0 then
-        local time = index * interval
-        return time + interval / 3
-    else
-        return thumbtime
-    end
-end
-
 local function draw(w, h, script)
     if not w or not show_thumbnail then return end
     local display_w, display_h = w, h
@@ -436,41 +412,51 @@ local function move_file(from, to)
     os.rename(from, to)
 end
 
-local last_seek = 0
-local function seek()
+local function seek(fast)
     if last_seek_time then
-        last_seek = mp.get_time()
-        run("async seek " .. last_seek_time .. " absolute+keyframes")
+        run("async seek " .. last_seek_time .. (fast and " absolute+keyframes" or " absolute+exact"))
     end
 end
 
-local seek_period = 0.1
-local seek_timer = mp.add_timeout(seek_period, seek)
+local seek_period = 3/60
+local seek_period_counter = 0
+local seek_timer
+seek_timer = mp.add_periodic_timer(seek_period, function()
+    if seek_period_counter == 0 then
+        seek(true)
+        seek_period_counter = 1
+    else
+        if seek_period_counter == 2 then
+            seek_timer:kill()
+            seek()
+        else seek_period_counter = seek_period_counter + 1 end
+    end
+end)
 seek_timer:kill()
+
 local function request_seek()
-    if seek_timer:is_enabled() then return end
-    local next_seek = seek_period - (mp.get_time() - last_seek)
-    if next_seek <= 0 then seek() return end
-    seek_timer.timeout = next_seek
-    seek_timer:resume()
+    if seek_timer:is_enabled() then
+        seek_period_counter = 0
+    else
+        seek_timer:resume()
+        seek(true)
+        seek_period_counter = 1
+    end
 end
 
 local function check_new_thumb()
-    local finfo = mp.utils.file_info(options.thumbnail)
-    if not finfo then return false end
-
     -- the slave might start writing to the file after checking existance and
     -- validity but before actually moving the file, so move to a temporary
     -- location before validity check to make sure everything stays consistant
     -- and valid thumbnails don't get overwritten by invalid ones
     local tmp = options.thumbnail..".tmp"
     move_file(options.thumbnail, tmp)
+    local finfo = mp.utils.file_info(tmp)
+    if not finfo then return false end
     if first_file then
         request_seek()
         first_file = false
     end
-    finfo = mp.utils.file_info(tmp)
-    if not finfo then return false end
     local w, h = real_res(effective_w, effective_h, finfo.size)
     if w then -- only accept valid thumbnails
         move_file(tmp, options.thumbnail..".bgra")
@@ -495,26 +481,23 @@ local function thumb(time, r_x, r_y, script)
     time = tonumber(time)
     if time == nil then return end
 
-    if r_x == nil or r_y == nil then
+    if r_x == "" or r_y == "" then
         x, y = nil, nil
     else
         x, y = math.floor(r_x + 0.5), math.floor(r_y + 0.5)
     end
 
-    local index = thumb_index(time)
-    local seek_time = index_time(index, time)
-
     script_name = script
-    if last_x ~= x or last_y ~= y or seek_time ~= last_seek_time or not show_thumbnail then
+    if last_x ~= x or last_y ~= y or not show_thumbnail then
         show_thumbnail = true
         last_x = x
         last_y = y
         draw(real_w, real_h, script)
     end
 
-    if seek_time == last_seek_time then return end
-    last_seek_time = seek_time
-    if not spawned then spawn(seek_time) end
+    if time == last_seek_time then return end
+    last_seek_time = time
+    if not spawned then spawn(time) end
     request_seek()
     if not file_timer:is_enabled() then file_timer:resume() end
 end
@@ -526,6 +509,7 @@ local function clear()
     show_thumbnail = false
     last_x = nil
     last_y = nil
+    if script_name then return end
     mp.command_native(
         {name = "overlay-remove", id=options.overlay_id}
     )
@@ -591,8 +575,6 @@ local function file_load()
     calc_dimensions()
     info(effective_w, effective_h)
     if disabled then return end
-
-    interval = math.min(math.max(mp.get_property_number("duration", 1) / options.max_thumbnails, options.interval), mp.get_property_number("duration", options.interval * options.min_thumbnails) / options.min_thumbnails)
 
     spawned = false
     if options.spawn_first then
