@@ -9,6 +9,9 @@ osd = mp.create_osd_overlay('ass-events')
 infinity = 1e309
 quarter_pi_sin = math.sin(math.pi / 4)
 
+-- Enables relative requires from `scripts` directory
+--package.path = package.path .. ';' .. mp.find_config_file('scripts') .. '/?.lua'
+
 require('uosc_shared/lib/std')
 
 --[[ OPTIONS ]]
@@ -479,7 +482,7 @@ function load_file_index_in_current_directory(index)
 		if index < 0 then index = #files + index + 1 end
 
 		if files[index] then
-			mp.commandv('loadfile', utils.join_path(serialized.dirname, files[index]))
+			mp.commandv('loadfile', join_path(serialized.dirname, files[index]))
 		end
 	end
 end
@@ -548,6 +551,7 @@ end)
 do
 	local template = nil
 	function update_title()
+		if template:sub(-6) == ' - mpv' then template = template:sub(1, -7) end
 		-- escape ASS, and strip newlines and trailing slashes and trim whitespace
 		local t = mp.command_native({'expand-text', template}):gsub('\\n', ' '):gsub('[\\%s]+$', ''):gsub('^%s+', '')
 		set_state('title', ass_escape(t))
@@ -896,7 +900,7 @@ mp.add_key_binding(nil, 'open-file', function()
 	-- Update active file in directory navigation menu
 	local function handle_file_loaded()
 		if Menu:is_open('open-file') then
-			Elements.menu:activate_value(normalize_path(mp.get_property_native('path')))
+			Elements.menu:activate_one_value(normalize_path(mp.get_property_native('path')))
 		end
 	end
 

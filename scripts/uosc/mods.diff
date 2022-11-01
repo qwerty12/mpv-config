@@ -1,27 +1,18 @@
 diff --git a/scripts/uosc.lua b/scripts/uosc.lua
-index 0416d5e..063b624 100644
+index d81ab59..20c88e8 100644
 --- a/scripts/uosc.lua
 +++ b/scripts/uosc.lua
-@@ -9,9 +9,6 @@ osd = mp.create_osd_overlay('ass-events')
- infinity = 1e309
+@@ -10,7 +10,7 @@ infinity = 1e309
  quarter_pi_sin = math.sin(math.pi / 4)
  
---- Enables relative requires from `scripts` directory
+ -- Enables relative requires from `scripts` directory
 -package.path = package.path .. ';' .. mp.find_config_file('scripts') .. '/?.lua'
--
++--package.path = package.path .. ';' .. mp.find_config_file('scripts') .. '/?.lua'
+ 
  require('uosc_shared/lib/std')
  
- --[[ OPTIONS ]]
-@@ -550,7 +547,6 @@ end)
- do
- 	local template = nil
- 	function update_title()
--		if template:sub(-6) == ' - mpv' then template = template:sub(1, -7) end
- 		-- escape ASS, and strip newlines and trailing slashes and trim whitespace
- 		local t = mp.command_native({'expand-text', template}):gsub('\\n', ' '):gsub('[\\%s]+$', ''):gsub('^%s+', '')
- 		set_state('title', ass_escape(t))
 diff --git a/scripts/uosc_shared/elements/BufferingIndicator.lua b/scripts/uosc_shared/elements/BufferingIndicator.lua
-index 4b8edb9..70e763e 100644
+index e2aa071..c1397e4 100644
 --- a/scripts/uosc_shared/elements/BufferingIndicator.lua
 +++ b/scripts/uosc_shared/elements/BufferingIndicator.lua
 @@ -11,6 +11,7 @@ function BufferingIndicator:init()
@@ -46,7 +37,7 @@ index 82a7e43..f900bc9 100644
  
  	if self.paused then
 diff --git a/scripts/uosc_shared/elements/Timeline.lua b/scripts/uosc_shared/elements/Timeline.lua
-index 20dbc18..bffbe19 100644
+index 9b7811b..487593d 100644
 --- a/scripts/uosc_shared/elements/Timeline.lua
 +++ b/scripts/uosc_shared/elements/Timeline.lua
 @@ -78,6 +78,16 @@ function Timeline:get_time_at_x(x)
@@ -117,7 +108,7 @@ index 977d5b8..9677986 100644
  			local opts = {
  				size = self.font_size, wrap = 2, color = bgt, border = 1, border_color = bg, opacity = visibility,
 diff --git a/scripts/uosc_shared/lib/utils.lua b/scripts/uosc_shared/lib/utils.lua
-index 3731d8c..ffc440f 100644
+index 52cf16d..75c34f6 100644
 --- a/scripts/uosc_shared/lib/utils.lua
 +++ b/scripts/uosc_shared/lib/utils.lua
 @@ -129,6 +129,13 @@ function ass_escape(str)
@@ -134,21 +125,19 @@ index 3731d8c..ffc440f 100644
  ---@param seconds number
  ---@return string
  function format_time(seconds)
-@@ -295,7 +302,7 @@ function navigate_directory(delta)
+@@ -355,6 +362,7 @@ function navigate_directory(delta)
  	local paths, current_index = get_adjacent_files(state.path, config.media_types)
  	if paths and current_index then
  		local _, path = decide_navigation_in_list(paths, current_index, delta)
--		if path then mp.commandv('loadfile', path) return true end
-+		if path then write_watch_later() mp.commandv('loadfile', path) return true end
++		if path then write_watch_later() end
+ 		if path then mp.commandv('loadfile', path) return true end
  	end
  	return false
- end
-@@ -305,7 +312,7 @@ function navigate_playlist(delta)
+@@ -365,6 +373,7 @@ function navigate_playlist(delta)
  	local playlist, pos = mp.get_property_native('playlist'), mp.get_property_native('playlist-pos-1')
  	if playlist and #playlist > 1 and pos then
  		local index = decide_navigation_in_list(playlist, pos, delta)
--		if index then mp.commandv('playlist-play-index', index - 1) return true end
-+		if index then write_watch_later() mp.commandv('playlist-play-index', index - 1) return true end
++		if index then write_watch_later() end
+ 		if index then mp.commandv('playlist-play-index', index - 1) return true end
  	end
  	return false
- end
