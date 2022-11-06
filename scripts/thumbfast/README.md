@@ -11,12 +11,12 @@ Default settings are listed in thumbfast.conf, copy it to your mpv `script-opts`
 
 ## UI support
 - [uosc](https://github.com/tomasklaen/uosc)
-- [osc.lua](https://github.com/po5/thumbfast/blob/vanilla-osc/player/lua/osc.lua) (fork)
+- [osc.lua](https://github.com/po5/thumbfast/blob/vanilla-osc/player/lua/osc.lua) (use this fork for vanilla UI)
 - [progressbar](https://github.com/torque/mpv-progressbar) (PR pending, [lua](https://github.com/po5/thumbfast/blob/mpv-progressbar/build/progressbar.lua))
 - [tethys](https://github.com/Zren/mpv-osc-tethys) (PR pending, [lua](https://github.com/Zren/mpv-osc-tethys/blob/a6a3f4295e9a68dbb0763f30cb2d9f73b2452445/osc_tethys.lua))
-- [modern](https://github.com/maoiscat/mpv-osc-modern/tree/with.thumbfast) ([lua](https://github.com/maoiscat/mpv-osc-modern/blob/with.thumbfast/modern.lua))
+- [modern](https://github.com/maoiscat/mpv-osc-modern/tree/with.thumbfast)
 - [MordenX](https://github.com/cyl0/MordenX) (PR pending, [lua](https://github.com/cyl0/MordenX/blob/16cf217c460b4eee8fdafe6821cc3c0db3d1532f/mordenx.lua))
-- [oscc](https://github.com/longtermfree/oscc) (PR pending, [lua](https://github.com/longtermfree/oscc/blob/ebe49992a9121980f5956be03d6c8c9b52a2ff5e/oscc.lua))
+- [oscc](https://github.com/longtermfree/oscc)
 
 ## Features
 No dependencies, no background thumbnail generation hogging your CPU.  
@@ -42,8 +42,6 @@ Hover on the timeline for nice thumbnails.
 `thumbnail`: Path for the temporary thumbnail file (must not be a directory). Leave empty for auto.  
 `max_height`, `max_width`: Maximum thumbnail size in pixels (scaled down to fit). Values are scaled when hidpi is enabled. Defaults to 200x200.  
 `overlay_id`: Overlay id for thumbnails. Leave blank unless you know what you're doing.  
-`interval`: Thumbnail interval in seconds, set to 0 to disable (warning: high cpu usage). Defaults to 10 seconds.  
-`min_thumbnails`, `max_thumbnails`: Number of thumbnails. Default to 1 and 120.  
 `spawn_first`: Spawn thumbnailer on file load for faster initial thumbnails. Defaults to no.  
 `network`: Enable on remote files. Defaults to no.  
 `audio`: Enable on audio files. Defaults to no.  
@@ -57,7 +55,8 @@ Declare the thumbfast state variable near the top of your script.
 local thumbfast = {
     width = 0,
     height = 0,
-    disabled = false
+    disabled = true,
+    available = false
 }
 ```
 Register the state setter near the end of your script, or near where your other script messages are.  
@@ -80,10 +79,10 @@ This code should be run when the user hovers on the seekbar. Don't worry even if
 -- margin_left = 10
 -- margin_right = 10
 -- cursor_x, cursor_y = mp.get_mouse_pos()
--- display_width = mp.get_property_number("osd-dimensions/w")
+-- display_width = mp.get_property_number("osd-width")
 -- hovered_seconds = video_duration * cursor_x / display_width
 
-if not thumbfast.disabled and thumbfast.width ~= 0 and thumbfast.height ~= 0 then
+if not thumbfast.disabled then
     mp.commandv("script-message-to", "thumbfast", "thumb",
         -- hovered time in seconds
         hovered_seconds,
@@ -96,7 +95,7 @@ end
 ```
 This code should be run when the user leaves the seekbar.
 ```lua
-if thumbfast.width ~= 0 and thumbfast.height ~= 0 then
+if thumbfast.available then
     mp.commandv("script-message-to", "thumbfast", "clear")
 end
 ```
