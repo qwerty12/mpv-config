@@ -1,5 +1,5 @@
 diff --git a/scripts/uosc.lua b/scripts/uosc.lua
-index d81ab59..20c88e8 100644
+index 54f87ee..24c39c0 100644
 --- a/scripts/uosc.lua
 +++ b/scripts/uosc.lua
 @@ -10,7 +10,7 @@ infinity = 1e309
@@ -37,10 +37,10 @@ index 82a7e43..f900bc9 100644
  
  	if self.paused then
 diff --git a/scripts/uosc_shared/elements/Timeline.lua b/scripts/uosc_shared/elements/Timeline.lua
-index 9b7811b..487593d 100644
+index 5ef798f..fc5f07f 100644
 --- a/scripts/uosc_shared/elements/Timeline.lua
 +++ b/scripts/uosc_shared/elements/Timeline.lua
-@@ -78,6 +78,16 @@ function Timeline:get_time_at_x(x)
+@@ -83,6 +83,16 @@ function Timeline:get_time_at_x(x)
  	return state.duration * progress
  end
  
@@ -57,16 +57,17 @@ index 9b7811b..487593d 100644
  ---@param fast? boolean
  function Timeline:set_from_cursor(fast)
  	if state.time and state.duration then
-@@ -97,7 +107,8 @@ function Timeline:on_prop_time() self:decide_enabled() end
+@@ -120,8 +130,10 @@ function Timeline:on_prop_time() self:decide_enabled() end
  function Timeline:on_prop_border() self:update_dimensions() end
  function Timeline:on_prop_fullormaxed() self:update_dimensions() end
  function Timeline:on_display() self:update_dimensions() end
--function Timeline:on_mouse_leave() self:clear_thumbnail() end
 +function Timeline:on_mouse_enter() show_clock(true) end
-+function Timeline:on_mouse_leave() self:clear_thumbnail() show_clock(false) end
+ function Timeline:on_mouse_leave()
+ 	if not self.hovered_chapter then self:clear_thumbnail() end
++	show_clock(false)
+ end
  function Timeline:on_global_mbtn_left_up()
  	if self.pressed then
- 		mp.set_property_native('pause', self.pressed_pause)
 diff --git a/scripts/uosc_shared/elements/TopBar.lua b/scripts/uosc_shared/elements/TopBar.lua
 index 977d5b8..9677986 100644
 --- a/scripts/uosc_shared/elements/TopBar.lua
