@@ -275,6 +275,17 @@ elseif settings.default_sort == 'size-desc' then
   sort_mode = 5
 end
 
+local function on_idle()
+  mp.unregister_idle(on_idle)
+  playlist()
+end
+
+local function on_vo_configured(_, value)
+  if not value then return end
+  mp.unobserve_property(on_vo_configured)
+  mp.register_idle(on_idle)
+end
+
 function on_loaded()
   filename = mp.get_property("filename")
   path = mp.get_property('path')
@@ -313,7 +324,7 @@ function on_loaded()
     -- a directory or playlist has been loaded, let's not do anything as mpv will expand it into files
     if ext and filetype_lookup[ext:lower()] then
       msg.info("Loading files from playing files directory")
-      playlist()
+      mp.observe_property("vo-configured", "bool", on_vo_configured)
     end
   end
 end
@@ -756,7 +767,7 @@ function playlist(force_dir)
       end
     end
     if c2 > 0 or c>0 then
-      mp.add_timeout(2, function() mp.osd_message("Added "..c + c2.." additional files to playlist") end)
+      mp.add_timeout(1, function() mp.osd_message("Added "..c + c2.." more files to playlist") end)
     else
       msg.info("No additional files found")
     end
