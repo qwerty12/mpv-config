@@ -33,6 +33,9 @@ pullup_label = string.format("%s", script_name)
 dominance_label = string.format("%s-dominance", script_name)
 ivtc_detect_label = string.format("%s-ivtc-detect", script_name)
 
+local timer = nil
+local autodetection_triggered = false
+
 -- number of seconds to gather cropdetect data
 detect_seconds = tonumber(mp.get_opt(string.format("%s.detect_seconds", script_name)))
 if not detect_seconds then
@@ -83,6 +86,7 @@ function start_detect()
 end
 
 function stop_detect()
+    if timer then timer:kill() end
     del_filter_if_present(detect_label)
     del_filter_if_present(ivtc_detect_label)
     timer = nil
@@ -159,7 +163,13 @@ end
 
 mp.observe_property("video-format", "string", function(_, value)
     if value == "mpeg2video" then
+        autodetection_triggered = true
         start_detect()
+    else
+        if value and autodetection_triggered then
+            autodetection_triggered = false
+            stop_detect()
+        end
     end
 end)
 mp.add_key_binding(nil, script_name, start_detect)
