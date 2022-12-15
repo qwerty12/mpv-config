@@ -135,10 +135,16 @@ local settings = {
   prefer_titles = "url",
 
   --call youtube-dl to resolve the titles of urls in the playlist
-  resolve_titles = false,
+  resolve_url_titles = false,
 
-  -- timeout in seconds for title resolving
+  --call ffprobe to resolve the titles of local files in the playlist (if they exist in the metadata)
+  resolve_local_titles = false,
+
+  -- timeout in seconds for url title resolving
   resolve_title_timeout = 15,
+
+  -- how many url titles can be resolved at a time. Higher number might lead to stutters.
+  concurrent_title_resolve_limit = 10,
 
   --osd timeout on inactivity, with high value on this open_toggles is good to be true
   playlist_display_timeout = 5,
@@ -157,6 +163,9 @@ local settings = {
   --paddings from top left corner
   text_padding_x = 10,
   text_padding_y = 30,
+  
+  --screen dim when menu is open 0.0 - 1.0 (0 is no dim, 1 is black)
+  curtain_opacity=0,
 
   --set title of window with stripped name
   set_title_stripped = false,
@@ -228,9 +237,9 @@ local pos = 0
 local plen = 0
 local cursor = 0
 --table for saved media titles for later if we prefer them
-local url_table = {}
--- table for urls that we have request to be resolved to titles
-local requested_urls = {}
+local title_table = {}
+-- table for urls and local file paths that we have requested to be resolved to titles
+local requested_titles = {}
 
 local filetype_lookup = {}
 
@@ -257,7 +266,11 @@ function update_opts(changelog)
     end
   end
 
-  if changelog.resolve_titles then
+  if changelog.resolve_url_titles then
+    resolve_titles()
+  end
+
+  if changelog.resolve_local_titles then
     resolve_titles()
   end
 
@@ -288,27 +301,19 @@ function is_protocol(path)
   return type(path) == 'string' and path:match('^%a[%a%d-_]+://') ~= nil
 end
 
-function on_loaded()
+function on_file_loaded()
+  refresh_globals()
   filename = mp.get_property("filename")
   path = mp.get_property('path')
-  --if not a url then join path with working directory
-  if not is_protocol(path) then
-    path = utils.join_path(mp.get_property('working-directory'), path)
-    directory = utils.split_path(path)
-  else
-    directory = nil
+  local media_title = mp.get_property("media-title")
+  if is_protocol(path) and not title_table[path] and path ~= media_title then
+    title_table[path] = media_title
   end
 
-  refresh_globals()
   if settings.sync_cursor_on_load then
     cursor=pos
     --refresh playlist if cursor moved
     if playlist_visible then draw_playlist() end
-  end
-
-  local media_title = mp.get_property("media-title")
-  if is_protocol(path) and not url_table[path] and path ~= media_title then
-    url_table[path] = media_title
   end
 
   strippedname = stripfilename(mp.get_property('media-title'))
@@ -319,6 +324,19 @@ function on_loaded()
   end
   if settings.set_title_stripped then
     mp.set_property("title", settings.title_prefix..strippedname..settings.title_suffix)
+  end
+end
+
+function on_start_file()
+  refresh_globals()
+  filename = mp.get_property("filename")
+  path = mp.get_property('path')
+  --if not a url then join path with working directory
+  if not is_protocol(path) then
+    path = utils.join_path(mp.get_property('working-directory'), path)
+    directory = utils.split_path(path)
+  else
+    directory = nil
   end
 
   if settings.loadfiles_on_start and plen == 1 then
@@ -342,7 +360,7 @@ function on_loaded()
   end
 end
 
-function on_closed()
+function on_end_file()
   if settings.save_playlist_on_file_end then save_playlist() end
   strippedname = nil
   path = nil
@@ -423,12 +441,12 @@ function get_name_from_index(i, notitle)
   if not title and should_use_title then
     local mtitle = mp.get_property('media-title')
     if i == pos and mp.get_property('filename') ~= mtitle then
-      if not url_table[name] then
-        url_table[name] = mtitle
+      if not title_table[name] then
+        title_table[name] = mtitle
       end
       title = mtitle
-    elseif url_table[name] then
-      title = url_table[name]
+    elseif title_table[name] then
+      title = title_table[name]
     end
   end
 
@@ -500,7 +518,21 @@ end
 function draw_playlist()
   refresh_globals()
   local ass = assdraw.ass_new()
-  ass:new_event()
+	
+  local _, _, a = mp.get_osd_size()
+  local h = 360
+  local w = h * a
+
+  if settings.curtain_opacity ~= nil and settings.curtain_opacity ~= 0 and settings.curtain_opacity < 1.0 then
+  -- curtain dim from https://github.com/christoph-heinrich/mpv-quality-menu/blob/501794bfbef468ee6a61e54fc8821fe5cd72c4ed/quality-menu.lua#L699-L707
+    local alpha = 255 - math.ceil(255 * settings.curtain_opacity)
+    ass.text = string.format('{\\pos(0,0)\\rDefault\\an7\\1c&H000000&\\alpha&H%X&}', alpha)
+    ass:draw_start()
+    ass:rect_cw(0, 0, w, h)
+    ass:draw_stop()
+    ass:new_event()
+  end
+	
   ass:append(settings.style_ass_tags)
 
   -- TODO: padding should work even on different osd alignments
@@ -532,7 +564,6 @@ function draw_playlist()
       ass:append(settings.playlist_sliced_suffix)
     end
   end
-  local w, h = mp.get_osd_size()
   if settings.scale_playlist_by_window then w,h = 0, 0 end
   mp.set_osd_ass(w, h, ass.text)
 end
@@ -792,7 +823,7 @@ function playlist(force_dir)
       end
     end
     if c2 > 0 or c>0 then
-      mp.add_timeout(1, function() mp.osd_message("Added "..c + c2.." more files to playlist") end)
+      msg.info("Added "..c + c2.." files to playlist")
     else
       msg.info("No additional files found")
     end
@@ -801,7 +832,13 @@ function playlist(force_dir)
     msg.error("Could not scan for files: "..(error or ""))
   end
   refresh_globals()
-  if playlist_visible then showplaylist() end
+  if playlist_visible then
+    showplaylist()
+  elseif settings.display_osd_feedback then
+    if c2 > 0 or c>0 then
+      mp.add_timeout(1, function() mp.osd_message("Added "..c + c2.." more files to playlist") end)
+    end
+  end
   return c + c2
 end
 
@@ -878,7 +915,7 @@ function save_playlist(filename)
       if not is_protocol(filename) then
         fullpath = utils.join_path(pwd, filename)
       end
-      local title = mp.get_property('playlist/'..i..'/title') or url_table[filename]
+      local title = mp.get_property('playlist/'..i..'/title') or title_table[filename]
       if title then
         file:write("#EXTINF:,"..title.."\n")
       end
@@ -955,7 +992,11 @@ function sortplaylist(startover)
   if startover then
     mp.set_property('playlist-pos', 0)
   end
-  if playlist_visible then showplaylist() end
+  if playlist_visible then
+    showplaylist()
+  elseif settings.display_osd_feedback then
+    mp.osd_message("Playlist sorted")
+  end
 end
 
 function reverseplaylist()
@@ -1093,67 +1134,173 @@ mp.observe_property('playlist-count', "number", function(_, plcount)
     sortplaylist()
   end
   if playlist_visible then showplaylist() end
-  if settings.prefer_titles == 'none' then return end
-  -- resolve titles
   resolve_titles()
 end)
 
---resolves url titles by calling youtube-dl
+
+url_request_queue = {}
+function url_request_queue.push(item) table.insert(url_request_queue, item) end
+function url_request_queue.pop() return table.remove(url_request_queue, 1) end
+local url_titles_to_fetch = url_request_queue
+local ongoing_url_requests = {}
+
+function url_fetching_throttler()
+  if #url_titles_to_fetch == 0 then
+    url_title_fetch_timer:kill()
+  end
+
+  local ongoing_url_requests_count = 0
+  for _, ongoing in pairs(ongoing_url_requests) do
+    if ongoing then
+      ongoing_url_requests_count = ongoing_url_requests_count + 1
+    end
+  end
+
+  -- start resolving some url titles if there is available slots
+  local amount_to_fetch = math.max(0, settings.concurrent_title_resolve_limit - ongoing_url_requests_count)
+  for index=1,amount_to_fetch,1 do
+    local file = url_titles_to_fetch.pop()
+    if file then
+      ongoing_url_requests[file] = true
+      resolve_ytdl_title(file)
+    end
+  end
+end
+
+url_title_fetch_timer = mp.add_periodic_timer(0.1, url_fetching_throttler)
+url_title_fetch_timer:kill()
+
+local_request_queue = {}
+function local_request_queue.push(item) table.insert(local_request_queue, item) end
+function local_request_queue.pop() return table.remove(local_request_queue, 1) end
+local local_titles_to_fetch = local_request_queue
+local ongoing_local_request = false
+
+-- this will only allow 1 concurrent local title resolve process
+function local_fetching_throttler()
+  if not ongoing_local_request then
+    local file = local_titles_to_fetch.pop()
+    if file then
+      ongoing_local_request = true
+      resolve_ffprobe_title(file)
+    end
+  end
+end
+
 function resolve_titles()
-  if not settings.resolve_titles then return end
+  if settings.prefer_titles == 'none' then return end
+  if not settings.resolve_url_titles and not settings.resolve_local_titles then return end
+
   local length = mp.get_property_number('playlist-count', 0)
   if length < 2 then return end
-  local i=0
   -- loop all items in playlist because we can't predict how it has changed
-  while i < length do
+  local added_urls = false
+  local added_local = false
+  for i=0,length - 1,1 do
     local filename = mp.get_property('playlist/'..i..'/filename')
     local title = mp.get_property('playlist/'..i..'/title')
     if i ~= pos
       and filename
-      and filename:match('^https?://')
       and not title
-      and not url_table[filename]
-      and not requested_urls[filename]
+      and not title_table[filename]
+      and not requested_titles[filename]
     then
-      requested_urls[filename] = true
-
-      local args = { settings.youtube_dl_executable, '--no-playlist', '--flat-playlist', '-sJ', filename }
-      local req = mp.command_native_async(
-        {
-          name = "subprocess",
-          args = args,
-          playback_only = false,
-          capture_stdout = true
-        }, function (success, res)
-            if res.killed_by_us then
-              msg.verbose('Request to resolve url title ' .. filename .. ' timed out')
-              return
-            end
-            if res.status == 0 then
-              local json, err = utils.parse_json(res.stdout)
-              if not err then
-                local is_playlist = json['_type'] and json['_type'] == 'playlist'
-                local title = (is_playlist and '[playlist]: ' or '') .. json['title']
-                msg.verbose(filename .. " resolved to '" .. title .. "'")
-                url_table[filename] = title
-                refresh_globals()
-                if playlist_visible then showplaylist() end
-                return
-              else
-                msg.error("Failed parsing json, reason: "..(err or "unknown"))
-              end
-            else
-              msg.error("Failed to resolve url title "..filename.." Error: "..(res.error or "unknown"))
-            end
-          end)
-
-      mp.add_timeout(settings.resolve_title_timeout, function()
-        mp.abort_async_command(req)
-      end)
-
+      requested_titles[filename] = true
+      if filename:match('^https?://') then
+        url_titles_to_fetch.push(filename)
+        added_urls = true
+      elseif settings.prefer_titles == "all" then
+        local_titles_to_fetch.push(filename)
+        added_local = true
+      end
     end
-    i=i+1
   end
+  if added_urls then
+    url_title_fetch_timer:resume()
+  end
+  if added_local then
+    local_fetching_throttler()
+  end
+end
+
+function resolve_ytdl_title(filename)
+  local args = {
+    settings.youtube_dl_executable,
+    '--no-playlist',
+    '--flat-playlist',
+    '-sJ',
+    '--no-config',
+    filename,
+  }
+  local req = mp.command_native_async(
+    {
+      name = "subprocess",
+      args = args,
+      playback_only = false,
+      capture_stdout = true
+    },
+    function (success, res)
+      ongoing_url_requests[filename] = false
+      if res.killed_by_us then
+        msg.verbose('Request to resolve url title ' .. filename .. ' timed out')
+        return
+      end
+      if res.status == 0 then
+        local json, err = utils.parse_json(res.stdout)
+        if not err then
+          local is_playlist = json['_type'] and json['_type'] == 'playlist'
+          local title = (is_playlist and '[playlist]: ' or '') .. json['title']
+          msg.verbose(filename .. " resolved to '" .. title .. "'")
+          title_table[filename] = title
+          refresh_globals()
+          if playlist_visible then showplaylist() end
+        else
+          msg.error("Failed parsing json, reason: "..(err or "unknown"))
+        end
+      else
+        msg.error("Failed to resolve url title "..filename.." Error: "..(res.error or "unknown"))
+      end
+    end
+  )
+
+  mp.add_timeout(
+    settings.resolve_title_timeout,
+    function()
+      mp.abort_async_command(req)
+      ongoing_url_requests[filename] = false
+    end
+  )
+end
+
+function resolve_ffprobe_title(filename)
+  local args = { "ffprobe", "-show_format", "-show_entries", "format=tags", "-loglevel", "quiet", filename }
+  local req = mp.command_native_async(
+    {
+      name = "subprocess",
+      args = args,
+      playback_only = false,
+      capture_stdout = true
+    },
+    function (success, res)
+      ongoing_local_request = false
+      local_fetching_throttler()
+      if res.killed_by_us then
+        msg.verbose('Request to resolve local title ' .. filename .. ' timed out')
+        return
+      end
+      if res.status == 0 then
+        local title = string.match(res.stdout, "title=([^\n\r]+)")
+        if title then
+          msg.verbose(filename .. " resolved to '" .. title .. "'")
+          title_table[filename] = title
+          refresh_globals()
+          if playlist_visible then showplaylist() end
+        end
+      else
+        msg.error("Failed to resolve local title "..filename.." Error: "..(res.error or "unknown"))
+      end
+    end
+  )
 end
 
 --script message handler
@@ -1205,5 +1352,6 @@ bind_keys(settings.key_loadfiles, "loadfiles", playlist)
 bind_keys(settings.key_saveplaylist, "saveplaylist", activate_playlist_save)
 bind_keys(settings.key_showplaylist, "showplaylist", toggle_playlist)
 
-mp.register_event("start-file", on_loaded)
-mp.register_event("end-file", on_closed)
+mp.register_event("start-file", on_start_file)
+mp.register_event("file-loaded", on_file_loaded)
+mp.register_event("end-file", on_end_file)
