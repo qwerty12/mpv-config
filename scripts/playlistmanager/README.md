@@ -24,10 +24,10 @@ You can pass settings from the command line on startup such as `mpv --idle=once 
 
 You can also change settings during runtime with a keybind or command like `KEY change-list script-opts append playlistmanager-showamount=10`. 
 
-If you are using [save-position-on-quit](https://mpv.io/manual/master/#options-save-position-on-quit) then the playlist will write watch later config when switching between files.
+If you are using [save-position-on-quit](https://mpv.io/manual/master/#options-save-position-on-quit) then the playlist will by default write watch later config when switching between files. There is a setting to disable this. 
 
-#### Url title resolving
-If you want playlistmanager to fetch and display titles of all playlist urls(mpv defaults to current file only) you will need to use `resolve_titles = yes`(default is no) setting. Title resolving requires `youtube-dl` to be in PATH to work by default, but it's configurable in settings.
+#### Title resolving
+This script is able to resolve titles for local files with ffprobe and urls with youtube-dl. See the `resolve_url_titles`, `resolve_local_titles`, `prefer_titles` and `youtube_dl_executable` settings for details.
 
 ## Keybinds
 ### Static keybindings
@@ -96,6 +96,7 @@ loadfiles | - / path | - | Loads files from playing files dir(default), or speci
 save | - / filename | - | Saves the playlist
 playlist-next | - | - | Plays next item in playlist (position of current file saved)
 playlist-prev | - | - | Plays previous item in playlist (position of current file saved)
+close | - | - | Hides the playlist if it's being rendered
     
     
 examples:  
