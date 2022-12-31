@@ -42,6 +42,7 @@ function hideOverlays() {
   hideOverlay('playlist-overlay');
   hideOverlay('shortcuts-overlay');
   hideOverlay('settings-overlay');
+  hideOverlay('uri-loader-overlay');
 }
 
 function createPlaylistTable(entry, position, pause, first) {
@@ -158,6 +159,14 @@ function populatePlaylist(json, pause) {
     if (first === true) {
       first = false
     }
+  }
+}
+
+function uriLoader(mode) {
+  uri = document.getElementById("uri-loader-input").value
+  if (uri) {
+    send("loadfile", encodeURIComponent(uri), mode)
+    document.getElementById("uri-loader-input").value = ''
   }
 }
 
@@ -295,7 +304,13 @@ window.onkeydown = function(e) {
   // We have no shortcuts below that use these combos, so don't capture them.
   // We allow Shift key as some keyboards require that to trigger the keys.
   // For example, a US QWERTY uses Shift+/ to get ?.
-  if (e.altKey || e.ctrlKey || e.metaKey) {
+  // Additionally, we want to ignore any keystrokes if an input element is focussed.
+  if (
+    e.altKey ||
+    e.ctrlKey ||
+    e.metaKey ||
+    document.activeElement.tagName.toLowerCase() === "input"
+  ) {
     return;
   }
 
