@@ -28,75 +28,16 @@
 
 ]]--
 
-key_bindings = {}
-
-function file_exists(name)
-    if not name or name == '' then
-        return false
-    end
-
-    local f = io.open(name, "r")
-
-    if f ~= nil then
-        io.close(f)
-        return true
-    else
-        return false
-    end
-end
+local file_to_delete = ""
+local key_bindings = {}
+local confirm_key = nil
 
 function is_protocol(path)
     return type(path) == 'string' and (path:match('^%a[%a%d_-]+://'))
 end
 
-function delete_file(path)
-    local is_windows = package.config:sub(1,1) == "\\"
-
-    if is_protocol(path) or not file_exists(path) then
-        return
-    end
-
-    if is_windows then
-        local ps_code = [[
-            Add-Type -AssemblyName Microsoft.VisualBasic
-            [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteFile('__path__', 'OnlyErrorDialogs', 'SendToRecycleBin')
-        ]]
-
-        local escaped_path = string.gsub(path, "'", "''")
-        escaped_path = string.gsub(escaped_path, "’", "’’")
-        escaped_path = string.gsub(escaped_path, "%%", "%%%%")
-        ps_code = string.gsub(ps_code, "__path__", escaped_path)
-
-        mp.command_native({
-            name = "subprocess",
-            playback_only = false,
-            args = { 'powershell', '-NoProfile', '-Command', ps_code },
-        })
-    else
-        mp.command_native({
-            name = "subprocess",
-            playback_only = false,
-            args = { 'trash', path },
-        })
-    end
-end
-
-function remove_current_file()
-    local count = mp.get_property_number("playlist-count")
-    local pos   = mp.get_property_number("playlist-pos")
-    local new_pos = 0
-
-    if pos == count - 1 then
-        new_pos = pos - 1
-    else
-        new_pos = pos + 1
-    end
-
-    mp.set_property_number("playlist-pos", new_pos)
-
-    if pos > -1 then
-        mp.command("playlist-remove " .. pos)
-    end
+function delete_file()
+    mp.command("script-binding uosc/delete-file-next")
 end
 
 function handle_confirm_key()
@@ -104,8 +45,7 @@ function handle_confirm_key()
 
     if file_to_delete == path then
         mp.commandv("show-text", "")
-        delete_file(file_to_delete)
-        remove_current_file()
+        delete_file()
         remove_bindings()
         file_to_delete = ""
     end
@@ -151,16 +91,17 @@ end
 
 function client_message(event)
     local path = mp.get_property("path")
+    if is_protocol(path) then return end
 
     if event.args[1] == "delete-file" and #event.args == 1 then
-        delete_file(path)
-        remove_current_file()
+        delete_file()
     elseif event.args[1] == "delete-file" and #event.args == 3 and #key_bindings == 0 then
         confirm_key = event.args[2]
         mp.add_timeout(5, cleanup)
         add_bindings()
         file_to_delete = path
-        mp.commandv("show-text", event.args[3], "5000")
+        local msg = mp.command_native({"expand-text", event.args[3]})
+        mp.commandv("show-text", msg, "5000")
     end
 end
 
