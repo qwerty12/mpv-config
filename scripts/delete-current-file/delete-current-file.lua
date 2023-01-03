@@ -37,7 +37,11 @@ function is_protocol(path)
 end
 
 function delete_file()
-    mp.command("script-binding uosc/delete-file-next")
+    if mp.get_property_number("playlist-count") == 1 then
+        mp.command("script-binding uosc/delete-file-quit")
+    else
+        mp.command("script-binding uosc/delete-file-next")
+    end
 end
 
 function handle_confirm_key()

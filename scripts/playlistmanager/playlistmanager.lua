@@ -333,6 +333,7 @@ function on_file_loaded()
   end
 end
 
+local on_vo_configured = nil
 function on_start_file()
   refresh_globals()
   filename = mp.get_property("filename")
@@ -350,18 +351,21 @@ function on_start_file()
     -- a directory or playlist has been loaded, let's not do anything as mpv will expand it into files
     if ext and filetype_lookup[ext:lower()] then
       msg.info("Loading files from playing files directory")
-      local on_vo_configured
-      on_vo_configured = function (_, value)
-        if not value then return end
-        mp.unobserve_property(on_vo_configured)
-        local on_idle
-        on_idle = function()
-          mp.unregister_idle(on_idle)
-          playlist()
+      if on_vo_configured then
+        playlist()
+      else
+        on_vo_configured = function (_, value)
+          if not value then return end
+          mp.unobserve_property(on_vo_configured)
+          local on_idle
+          on_idle = function()
+            mp.unregister_idle(on_idle)
+            playlist()
+          end
+          mp.register_idle(on_idle)
         end
-        mp.register_idle(on_idle)
+        mp.observe_property("vo-configured", "bool", on_vo_configured)
       end
-      mp.observe_property("vo-configured", "bool", on_vo_configured)
     end
   end
 end
@@ -861,6 +865,7 @@ function playlist(force_dir)
         cur = true
       elseif filenames[file] then
         -- skip files already in playlist
+        break
       elseif cur == true or settings.loadfiles_always_append then
         mp.commandv("loadfile", utils.join_path(dir, file), appendstr)
         msg.info("Appended to playlist: " .. file)
