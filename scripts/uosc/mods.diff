@@ -1,5 +1,5 @@
 diff --git a/scripts/uosc.lua b/scripts/uosc.lua
-index 54f87ee..24c39c0 100644
+index c7702db..935e482 100644
 --- a/scripts/uosc.lua
 +++ b/scripts/uosc.lua
 @@ -10,7 +10,7 @@ infinity = 1e309
@@ -37,7 +37,7 @@ index 82a7e43..f900bc9 100644
  
  	if self.paused then
 diff --git a/scripts/uosc_shared/elements/Timeline.lua b/scripts/uosc_shared/elements/Timeline.lua
-index 5ef798f..fc5f07f 100644
+index 68bd725..caf4879 100644
 --- a/scripts/uosc_shared/elements/Timeline.lua
 +++ b/scripts/uosc_shared/elements/Timeline.lua
 @@ -83,6 +83,16 @@ function Timeline:get_time_at_x(x)
@@ -69,7 +69,7 @@ index 5ef798f..fc5f07f 100644
  function Timeline:on_global_mbtn_left_up()
  	if self.pressed then
 diff --git a/scripts/uosc_shared/elements/TopBar.lua b/scripts/uosc_shared/elements/TopBar.lua
-index 977d5b8..9677986 100644
+index 977d5b8..8826231 100644
 --- a/scripts/uosc_shared/elements/TopBar.lua
 +++ b/scripts/uosc_shared/elements/TopBar.lua
 @@ -83,7 +83,7 @@ function TopBar:update_dimensions()
@@ -81,25 +81,21 @@ index 977d5b8..9677986 100644
  	self.button_width = round(self.size * 1.15)
  	self.ay = Elements.window_border.size
  	self.bx = display.width - Elements.window_border.size
-@@ -122,7 +122,7 @@ function TopBar:render()
- 	local ass = assdraw.ass_new()
- 
- 	-- Window title
--	if options.top_bar_title and (state.title or state.has_playlist) then
-+	if options.top_bar_title and state.title then
- 		local bg_margin = math.floor((self.size - self.font_size) / 4)
- 		local padding = self.font_size / 2
- 		local title_ax = self.ax + bg_margin
-@@ -130,7 +130,7 @@ function TopBar:render()
- 		local max_bx = self.title_bx - self.spacing
- 
+@@ -132,17 +132,17 @@ function TopBar:render()
  		-- Playlist position
--		if state.has_playlist then
-+		if false then
+ 		if state.has_playlist then
  			local text = state.playlist_pos .. '' .. state.playlist_count
- 			local formatted_text = '{\\b1}' .. state.playlist_pos .. '{\\b0\\fs' .. self.font_size * 0.9 .. '}/'
+-			local formatted_text = '{\\b1}' .. state.playlist_pos .. '{\\b0\\fs' .. self.font_size * 0.9 .. '}/'
++			local formatted_text = state.playlist_pos .. '{\\fs' .. self.font_size * 0.9 .. '}/'
  				.. state.playlist_count
-@@ -142,7 +142,7 @@ function TopBar:render()
+-			local opts = {size = self.font_size, wrap = 2, color = fgt, opacity = visibility}
++			local opts = {size = self.font_size, wrap = 2, color = fg, opacity = visibility}
+ 			local bx = round(title_ax + text_width(text, opts) + padding * 2)
+-			ass:rect(title_ax, title_ay, bx, self.by - bg_margin, {color = fg, opacity = visibility, radius = 2})
++			ass:rect(title_ax, title_ay, bx, self.by - bg_margin, {color = fgt, opacity = visibility, radius = 2})
+ 			ass:txt(title_ax + (bx - title_ax) / 2, self.ay + (self.size / 2), 5, formatted_text, opts)
+-			title_ax = bx + bg_margin
++			title_ax = bx - 10
  		end
  
  		-- Title
@@ -109,7 +105,7 @@ index 977d5b8..9677986 100644
  			local opts = {
  				size = self.font_size, wrap = 2, color = bgt, border = 1, border_color = bg, opacity = visibility,
 diff --git a/scripts/uosc_shared/lib/utils.lua b/scripts/uosc_shared/lib/utils.lua
-index 52cf16d..75c34f6 100644
+index d3f97fe..4868e18 100644
 --- a/scripts/uosc_shared/lib/utils.lua
 +++ b/scripts/uosc_shared/lib/utils.lua
 @@ -129,6 +129,13 @@ function ass_escape(str)

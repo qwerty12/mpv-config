@@ -122,7 +122,7 @@ function TopBar:render()
 	local ass = assdraw.ass_new()
 
 	-- Window title
-	if options.top_bar_title and state.title then
+	if options.top_bar_title and (state.title or state.has_playlist) then
 		local bg_margin = math.floor((self.size - self.font_size) / 4)
 		local padding = self.font_size / 2
 		local title_ax = self.ax + bg_margin
@@ -130,15 +130,15 @@ function TopBar:render()
 		local max_bx = self.title_bx - self.spacing
 
 		-- Playlist position
-		if false then
+		if state.has_playlist then
 			local text = state.playlist_pos .. '' .. state.playlist_count
-			local formatted_text = '{\\b1}' .. state.playlist_pos .. '{\\b0\\fs' .. self.font_size * 0.9 .. '}/'
+			local formatted_text = state.playlist_pos .. '{\\fs' .. self.font_size * 0.9 .. '}/'
 				.. state.playlist_count
-			local opts = {size = self.font_size, wrap = 2, color = fgt, opacity = visibility}
+			local opts = {size = self.font_size, wrap = 2, color = fg, opacity = visibility}
 			local bx = round(title_ax + text_width(text, opts) + padding * 2)
-			ass:rect(title_ax, title_ay, bx, self.by - bg_margin, {color = fg, opacity = visibility, radius = 2})
+			ass:rect(title_ax, title_ay, bx, self.by - bg_margin, {color = fgt, opacity = visibility, radius = 2})
 			ass:txt(title_ax + (bx - title_ax) / 2, self.ay + (self.size / 2), 5, formatted_text, opts)
-			title_ax = bx + bg_margin
+			title_ax = bx - 10
 		end
 
 		-- Title
