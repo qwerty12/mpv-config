@@ -1,5 +1,5 @@
 diff --git a/scripts/uosc.lua b/scripts/uosc.lua
-index c7702db..935e482 100644
+index 2e2247d..68808b2 100644
 --- a/scripts/uosc.lua
 +++ b/scripts/uosc.lua
 @@ -10,7 +10,7 @@ infinity = 1e309
@@ -37,7 +37,7 @@ index 82a7e43..f900bc9 100644
  
  	if self.paused then
 diff --git a/scripts/uosc_shared/elements/Timeline.lua b/scripts/uosc_shared/elements/Timeline.lua
-index 68bd725..caf4879 100644
+index 68bd725..a948a3e 100644
 --- a/scripts/uosc_shared/elements/Timeline.lua
 +++ b/scripts/uosc_shared/elements/Timeline.lua
 @@ -83,6 +83,16 @@ function Timeline:get_time_at_x(x)
@@ -68,6 +68,15 @@ index 68bd725..caf4879 100644
  end
  function Timeline:on_global_mbtn_left_up()
  	if self.pressed then
+@@ -208,7 +220,7 @@ function Timeline:render()
+ 	ass:new_event()
+ 	ass:pos(0, 0)
+ 	ass:append('{\\rDefault\\an7\\blur0\\bord0\\1c&H' .. bg .. '}')
+-	ass:opacity(options.timeline_opacity)
++	ass:opacity((not state.pause or self:get_is_hovered()) and options.timeline_opacity or 0.45) -- might need function Timeline:on_prop_pause() request_render() end
+ 	ass:draw_start()
+ 	ass:rect_cw(bax, bay, fax, bby) --left of progress
+ 	ass:rect_cw(fbx, bay, bbx, bby) --right of progress
 diff --git a/scripts/uosc_shared/elements/TopBar.lua b/scripts/uosc_shared/elements/TopBar.lua
 index 977d5b8..8826231 100644
 --- a/scripts/uosc_shared/elements/TopBar.lua

@@ -220,7 +220,7 @@ function Timeline:render()
 	ass:new_event()
 	ass:pos(0, 0)
 	ass:append('{\\rDefault\\an7\\blur0\\bord0\\1c&H' .. bg .. '}')
-	ass:opacity(options.timeline_opacity)
+	ass:opacity((not state.pause or self:get_is_hovered()) and options.timeline_opacity or 0.45) -- might need function Timeline:on_prop_pause() request_render() end
 	ass:draw_start()
 	ass:rect_cw(bax, bay, fax, bby) --left of progress
 	ass:rect_cw(fbx, bay, bbx, bby) --right of progress
