@@ -107,6 +107,9 @@ local settings = {
   --Use ~ for home directory. Leave as empty to use mpv/playlists
   playlist_savepath = "",
 
+  -- constant filename to save playlist as. Note that it will override existing playlist. Leave empty for generated name.
+  playlist_save_filename = "",
+
   --save playlist automatically after current file was unloaded
   save_playlist_on_file_end = false,
 
@@ -155,8 +158,8 @@ local settings = {
   -- when peeking at playlist, show playlist at the very least for display timeout
   peek_respect_display_timeout = false,
 
-  --amount of entries to show before slicing. Optimal value depends on font/video size etc.
-  showamount = 16,
+  -- the maximum amount of lines playlist will render. Optimal value depends on font/video size etc.
+  showamount = 9,
 
   --font size scales by window, if false requires larger font and padding sizes
   scale_playlist_by_window=true,
@@ -553,27 +556,46 @@ function draw_playlist()
   if settings.playlist_header ~= "" then
     ass:append(parse_header(settings.playlist_header).."\\N")
   end
-  local start = cursor - math.floor(settings.showamount/2)
-  local showall = false
-  local showrest = false
-  if start<0 then start=0 end
-  if plen <= settings.showamount then
-    start=0
-    showall=true
-  end
-  if start > math.max(plen-settings.showamount-1, 0) then
-    start=plen-settings.showamount
-    showrest=true
-  end
-  if start > 0 and not showall then ass:append(settings.playlist_sliced_prefix.."\\N") end
-  for index=start,start+settings.showamount-1,1 do
-    if index == plen then break end
 
-    ass:append(parse_filename_by_index(index).."\\N")
-    if index == start+settings.showamount-1 and not showall and not showrest then
+  -- (visible index, playlist index) pairs of playlist entries that should be rendered
+  local visible_indices = {}
+
+  local one_based_cursor = cursor + 1
+  table.insert(visible_indices, one_based_cursor)
+
+  local offset = 1;
+  local visible_indices_length = 1;
+  while visible_indices_length < settings.showamount and visible_indices_length < plen do
+    -- add entry for offset steps below the cursor
+    local below = one_based_cursor + offset
+    if below <= plen then
+      table.insert(visible_indices, below)
+      visible_indices_length = visible_indices_length + 1;
+    end
+
+    -- add entry for offset steps above the cursor
+    -- also need to double check that there is still space, this happens if we have even numbered limit
+    local above = one_based_cursor - offset
+    if above >= 1 and visible_indices_length < settings.showamount and visible_indices_length < plen then
+      table.insert(visible_indices, 1, above)
+      visible_indices_length = visible_indices_length + 1;
+    end
+
+    offset = offset + 1
+  end
+
+  -- both indices are 1 based
+  for display_index, playlist_index in pairs(visible_indices) do
+    if display_index == 1 and playlist_index ~= 1 then
+      ass:append(settings.playlist_sliced_prefix.."\\N")
+    elseif display_index == settings.showamount and playlist_index ~= plen then
       ass:append(settings.playlist_sliced_suffix)
+    else
+      -- parse_filename_by_index expects 0 based index
+      ass:append(parse_filename_by_index(playlist_index - 1).."\\N")
     end
   end
+
   if settings.scale_playlist_by_window then w,h = 0, 0 end
   mp.set_osd_ass(w, h, ass.text)
 end
@@ -680,6 +702,7 @@ function unselectfile()
 end
 
 function resetcursor()
+  selection = nil
   cursor = mp.get_property_number('playlist-pos', 1)
 end
 
@@ -955,7 +978,14 @@ function save_playlist(filename)
   local date = os.date("*t")
   local datestring = ("%02d-%02d-%02d_%02d-%02d-%02d"):format(date.year, date.month, date.day, date.hour, date.min, date.sec)
 
-  local name = filename or datestring.."_playlist-size_"..length..".m3u"
+  local name = filename
+  if name == nil then
+    if settings.playlist_save_filename == nil or settings.playlist_save_filename == "" then
+      name = datestring.."_playlist-size_"..length..".m3u"
+    else
+      name = settings.playlist_save_filename
+    end
+  end
 
   local savepath = utils.join_path(savepath, name)
   local file, err = io.open(savepath, "w")
