@@ -37,7 +37,7 @@ index 82a7e43..f900bc9 100644
  
  	if self.paused then
 diff --git a/scripts/uosc_shared/elements/Timeline.lua b/scripts/uosc_shared/elements/Timeline.lua
-index 68bd725..a948a3e 100644
+index 2ebcdf8..cb70c2f 100644
 --- a/scripts/uosc_shared/elements/Timeline.lua
 +++ b/scripts/uosc_shared/elements/Timeline.lua
 @@ -83,6 +83,16 @@ function Timeline:get_time_at_x(x)
@@ -113,6 +113,35 @@ index 977d5b8..8826231 100644
  		if max_bx - title_ax > self.font_size * 3 and text and text ~= '' then
  			local opts = {
  				size = self.font_size, wrap = 2, color = bgt, border = 1, border_color = bg, opacity = visibility,
+diff --git a/scripts/uosc_shared/lib/menus.lua b/scripts/uosc_shared/lib/menus.lua
+index e2a4ccc..4b62d5f 100644
+--- a/scripts/uosc_shared/lib/menus.lua
++++ b/scripts/uosc_shared/lib/menus.lua
+@@ -75,6 +75,7 @@ function create_select_tracklist_type_menu_opener(menu_title, track_type, track_
+ 		local first_item_index = #items + 1
+ 		local active_index = nil
+ 		local disabled_item = nil
++		local secondary_sid = nil
+ 
+ 		-- Add option to disable a subtitle track. This works for all tracks,
+ 		-- but why would anyone want to disable audio or video? Better to not
+@@ -84,6 +85,7 @@ function create_select_tracklist_type_menu_opener(menu_title, track_type, track_
+ 		if track_type == 'sub' then
+ 			disabled_item = {title = 'Disabled', italic = true, muted = true, hint = '—', value = nil, active = true}
+ 			items[#items + 1] = disabled_item
++			secondary_sid = mp.get_property_native("secondary-sid", nil)
+ 		end
+ 
+ 		for _, track in ipairs(tracklist) do
+@@ -105,7 +107,7 @@ function create_select_tracklist_type_menu_opener(menu_title, track_type, track_
+ 
+ 				items[#items + 1] = {
+ 					title = (track.title and track.title or 'Track ' .. track.id),
+-					hint = table.concat(hint_values, ', '),
++					hint = (table.concat(hint_values, ', ')) .. ((track.selected and track.id == secondary_sid) and '²' or ''),
+ 					value = track.id,
+ 					active = track.selected,
+ 				}
 diff --git a/scripts/uosc_shared/lib/utils.lua b/scripts/uosc_shared/lib/utils.lua
 index d3f97fe..4868e18 100644
 --- a/scripts/uosc_shared/lib/utils.lua

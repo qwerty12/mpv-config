@@ -75,6 +75,7 @@ function create_select_tracklist_type_menu_opener(menu_title, track_type, track_
 		local first_item_index = #items + 1
 		local active_index = nil
 		local disabled_item = nil
+		local secondary_sid = nil
 
 		-- Add option to disable a subtitle track. This works for all tracks,
 		-- but why would anyone want to disable audio or video? Better to not
@@ -84,6 +85,7 @@ function create_select_tracklist_type_menu_opener(menu_title, track_type, track_
 		if track_type == 'sub' then
 			disabled_item = {title = 'Disabled', italic = true, muted = true, hint = '—', value = nil, active = true}
 			items[#items + 1] = disabled_item
+			secondary_sid = mp.get_property_native("secondary-sid", nil)
 		end
 
 		for _, track in ipairs(tracklist) do
@@ -105,7 +107,7 @@ function create_select_tracklist_type_menu_opener(menu_title, track_type, track_
 
 				items[#items + 1] = {
 					title = (track.title and track.title or 'Track ' .. track.id),
-					hint = table.concat(hint_values, ', '),
+					hint = (table.concat(hint_values, ', ')) .. ((track.selected and track.id == secondary_sid) and '²' or ''),
 					value = track.id,
 					active = track.selected,
 				}
