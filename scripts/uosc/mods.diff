@@ -37,7 +37,7 @@ index 82a7e43..f900bc9 100644
  
  	if self.paused then
 diff --git a/scripts/uosc_shared/elements/Timeline.lua b/scripts/uosc_shared/elements/Timeline.lua
-index 2ebcdf8..cb70c2f 100644
+index 4030b2e..cbc592f 100644
 --- a/scripts/uosc_shared/elements/Timeline.lua
 +++ b/scripts/uosc_shared/elements/Timeline.lua
 @@ -83,6 +83,16 @@ function Timeline:get_time_at_x(x)
@@ -78,7 +78,7 @@ index 2ebcdf8..cb70c2f 100644
  	ass:rect_cw(bax, bay, fax, bby) --left of progress
  	ass:rect_cw(fbx, bay, bbx, bby) --right of progress
 diff --git a/scripts/uosc_shared/elements/TopBar.lua b/scripts/uosc_shared/elements/TopBar.lua
-index 977d5b8..8826231 100644
+index 977d5b8..f221cd8 100644
 --- a/scripts/uosc_shared/elements/TopBar.lua
 +++ b/scripts/uosc_shared/elements/TopBar.lua
 @@ -83,7 +83,7 @@ function TopBar:update_dimensions()
@@ -104,7 +104,7 @@ index 977d5b8..8826231 100644
 +			ass:rect(title_ax, title_ay, bx, self.by - bg_margin, {color = fgt, opacity = visibility, radius = 2})
  			ass:txt(title_ax + (bx - title_ax) / 2, self.ay + (self.size / 2), 5, formatted_text, opts)
 -			title_ax = bx + bg_margin
-+			title_ax = bx - 10
++			title_ax = bx
  		end
  
  		-- Title
@@ -113,6 +113,15 @@ index 977d5b8..8826231 100644
  		if max_bx - title_ax > self.font_size * 3 and text and text ~= '' then
  			local opts = {
  				size = self.font_size, wrap = 2, color = bgt, border = 1, border_color = bg, opacity = visibility,
+@@ -153,7 +153,7 @@ function TopBar:render()
+ 			ass:rect(title_ax, title_ay, bx, by, {
+ 				color = bg, opacity = visibility * options.top_bar_title_opacity, radius = 2,
+ 			})
+-			ass:txt(title_ax + padding, self.ay + (self.size / 2), 4, text, opts)
++			ass:txt(title_ax + (state.has_playlist and 4 or padding), self.ay + (self.size / 2), 4, text, opts)
+ 			title_ay = by + 1
+ 		end
+ 
 diff --git a/scripts/uosc_shared/lib/menus.lua b/scripts/uosc_shared/lib/menus.lua
 index e2a4ccc..4b62d5f 100644
 --- a/scripts/uosc_shared/lib/menus.lua

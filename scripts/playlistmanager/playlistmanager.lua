@@ -134,6 +134,9 @@ local settings = {
   -- allow playlistmanager to write watch later config when navigating between files
   allow_write_watch_later_config = true,
 
+  -- reset cursor navigation when closing or opening playlist
+  reset_cursor_on_close = true,
+  reset_cursor_on_open = true,
 
   --####  VISUAL SETTINGS
 
@@ -214,9 +217,6 @@ local settings = {
 
   --output visual feedback to OSD for tasks
   display_osd_feedback = true,
-
-  -- reset cursor navigation when playlist is not visible
-  reset_cursor_on_close = true,
 }
 local opts = require("mp.options")
 opts.read_options(settings, "playlistmanager", function(list) update_opts(list) end)
@@ -659,6 +659,10 @@ end
 function showplaylist(duration)
   refresh_globals()
   if plen == 0 then return end
+  if not playlist_visible and settings.reset_cursor_on_open then
+    resetcursor()
+  end
+
   playlist_visible = true
   add_keybinds()
 
@@ -674,6 +678,9 @@ end
 function showplaylist_non_interactive(duration)
   refresh_globals()
   if plen == 0 then return end
+  if not playlist_visible and settings.reset_cursor_on_open then
+    resetcursor()
+  end
   playlist_visible = true
   draw_playlist()
   keybindstimer:kill()
@@ -975,12 +982,12 @@ function save_playlist(filename)
     end
   end
 
-  local date = os.date("*t")
-  local datestring = ("%02d-%02d-%02d_%02d-%02d-%02d"):format(date.year, date.month, date.day, date.hour, date.min, date.sec)
-
   local name = filename
   if name == nil then
     if settings.playlist_save_filename == nil or settings.playlist_save_filename == "" then
+      local date = os.date("*t")
+      local datestring = ("%02d-%02d-%02d_%02d-%02d-%02d"):format(date.year, date.month, date.day, date.hour, date.min, date.sec)
+
       name = datestring.."_playlist-size_"..length..".m3u"
     else
       name = settings.playlist_save_filename
@@ -992,6 +999,7 @@ function save_playlist(filename)
   if not file then
     msg.error("Error in creating playlist file, check permissions. Error: "..(err or "unknown"))
   else
+    file:write("#EXTM3U\n")
     local i=0
     while i < length do
       local pwd = mp.get_property("working-directory")

@@ -138,7 +138,7 @@ function TopBar:render()
 			local bx = round(title_ax + text_width(text, opts) + padding * 2)
 			ass:rect(title_ax, title_ay, bx, self.by - bg_margin, {color = fgt, opacity = visibility, radius = 2})
 			ass:txt(title_ax + (bx - title_ax) / 2, self.ay + (self.size / 2), 5, formatted_text, opts)
-			title_ax = bx - 10
+			title_ax = bx
 		end
 
 		-- Title
@@ -153,7 +153,7 @@ function TopBar:render()
 			ass:rect(title_ax, title_ay, bx, by, {
 				color = bg, opacity = visibility * options.top_bar_title_opacity, radius = 2,
 			})
-			ass:txt(title_ax + padding, self.ay + (self.size / 2), 4, text, opts)
+			ass:txt(title_ax + (state.has_playlist and 4 or padding), self.ay + (self.size / 2), 4, text, opts)
 			title_ay = by + 1
 		end
 
