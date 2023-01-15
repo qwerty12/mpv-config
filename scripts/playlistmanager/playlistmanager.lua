@@ -1023,12 +1023,12 @@ function save_playlist(filename)
 end
 
 function alphanumsort(a, b)
-  local function padnum(d)
-    local dec, n = string.match(d, "(%.?)0*(.+)")
-    return #dec > 0 and ("%.12f"):format(d) or ("%s%03d%s"):format(dec, #n, n)
+  local function padnum(n, d)
+    return #d > 0 and ("%03d%s%.12f"):format(#n, n, tonumber(d) / (10 ^ #d))
+        or ("%03d%s"):format(#n, n)
   end
-  return tostring(a):lower():gsub("%.?%d+",padnum)..("%3d"):format(#b)
-       < tostring(b):lower():gsub("%.?%d+",padnum)..("%3d"):format(#a)
+  return tostring(a):lower():gsub("0*(%d+)%.?(%d*)",padnum)..("%3d"):format(#b)
+       < tostring(b):lower():gsub("0*(%d+)%.?(%d*)",padnum)..("%3d"):format(#a)
 end
 
 -- fast sort algo from https://github.com/zsugabubus/dotfiles/blob/master/.config/mpv/scripts/playlist-filtersort.lua
