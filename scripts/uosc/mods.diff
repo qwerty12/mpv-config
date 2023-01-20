@@ -1,5 +1,5 @@
 diff --git a/scripts/uosc.lua b/scripts/uosc.lua
-index 2e2247d..68808b2 100644
+index d58d8f6..6a00f6c 100644
 --- a/scripts/uosc.lua
 +++ b/scripts/uosc.lua
 @@ -10,7 +10,7 @@ infinity = 1e309
@@ -11,6 +11,14 @@ index 2e2247d..68808b2 100644
  
  require('uosc_shared/lib/std')
  
+@@ -563,7 +563,6 @@ mp.observe_property('mouse-pos', 'native', update_mouse_pos)
+ mp.observe_property('osc', 'bool', function(name, value) if value == true then mp.set_property('osc', 'no') end end)
+ mp.register_event('file-loaded', function()
+ 	set_state('path', normalize_path(mp.get_property_native('path')))
+-	Elements:flash({'top_bar'})
+ end)
+ mp.register_event('end-file', function(event)
+ 	if event.reason == 'eof' then
 diff --git a/scripts/uosc_shared/elements/BufferingIndicator.lua b/scripts/uosc_shared/elements/BufferingIndicator.lua
 index e2aa071..c1397e4 100644
 --- a/scripts/uosc_shared/elements/BufferingIndicator.lua
@@ -78,7 +86,7 @@ index 4030b2e..cbc592f 100644
  	ass:rect_cw(bax, bay, fax, bby) --left of progress
  	ass:rect_cw(fbx, bay, bbx, bby) --right of progress
 diff --git a/scripts/uosc_shared/elements/TopBar.lua b/scripts/uosc_shared/elements/TopBar.lua
-index 977d5b8..f221cd8 100644
+index 761d76b..ee643ce 100644
 --- a/scripts/uosc_shared/elements/TopBar.lua
 +++ b/scripts/uosc_shared/elements/TopBar.lua
 @@ -83,7 +83,7 @@ function TopBar:update_dimensions()
@@ -90,7 +98,7 @@ index 977d5b8..f221cd8 100644
  	self.button_width = round(self.size * 1.15)
  	self.ay = Elements.window_border.size
  	self.bx = display.width - Elements.window_border.size
-@@ -132,17 +132,17 @@ function TopBar:render()
+@@ -141,13 +141,13 @@ function TopBar:render()
  		-- Playlist position
  		if state.has_playlist then
  			local text = state.playlist_pos .. '' .. state.playlist_count
@@ -108,12 +116,7 @@ index 977d5b8..f221cd8 100644
  		end
  
  		-- Title
--		local text = state.title
-+		local text = state.title or 'mpv'
- 		if max_bx - title_ax > self.font_size * 3 and text and text ~= '' then
- 			local opts = {
- 				size = self.font_size, wrap = 2, color = bgt, border = 1, border_color = bg, opacity = visibility,
-@@ -153,7 +153,7 @@ function TopBar:render()
+@@ -162,7 +162,7 @@ function TopBar:render()
  			ass:rect(title_ax, title_ay, bx, by, {
  				color = bg, opacity = visibility * options.top_bar_title_opacity, radius = 2,
  			})
@@ -152,7 +155,7 @@ index e2a4ccc..4b62d5f 100644
  					active = track.selected,
  				}
 diff --git a/scripts/uosc_shared/lib/utils.lua b/scripts/uosc_shared/lib/utils.lua
-index d3f97fe..4868e18 100644
+index 0f13785..e49c492 100644
 --- a/scripts/uosc_shared/lib/utils.lua
 +++ b/scripts/uosc_shared/lib/utils.lua
 @@ -129,6 +129,13 @@ function ass_escape(str)

@@ -132,6 +132,12 @@ Under the hood, `toggle-ui` is using `toggle-elements`, and that is in turn usin
 
 Toggles the always visible portion of the timeline. You can look at it as switching `timeline_size_min` option between it's configured value and 0.
 
+#### `toggle-title`
+
+Toggles the top bar title between main and alternative title's. This can also be done by clicking on the top bar.
+
+Only relevant if top bar is enabled, `top_bar_alt_title` is configured, and `top_bar_alt_title_place` is `toggle`.
+
 #### `flash-ui`
 
 Command(s) to briefly flash the whole UI. Elements are revealed for a second and then fade away.
@@ -563,6 +569,18 @@ External properties can also be used as control button badges:
 ```
 controls=command:icon_name:command_name#foo@script_name?My foo button
 ```
+
+### `overwrite-binding <name> <command>`
+
+Allows a overwriting handling of uosc built in bindings. Useful for 3rd party scripts that specialize in a specific domain to replace built in menus or behaviors provided by existing bindings.
+
+Example that reroutes uosc's basic stream quality menu to [christoph-heinrich/mpv-quality-menu](https://github.com/christoph-heinrich/mpv-quality-menu):
+
+```lua
+mp.commandv('script-message-to', 'uosc', 'overwrite-binding', 'stream-quality', 'script-binding quality_menu/video_formats_toggle')
+```
+
+To cancel the overwrite and return to default behavior, just omit the `<command>` parameter.
 
 ## Why _uosc_?
 

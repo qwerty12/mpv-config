@@ -43,5 +43,7 @@ function started()
     end
 end
 
-mp.register_event("file-loaded", started)
+if orig_opm ~= "" then
+    mp.register_event("file-loaded", started)
+end
 mp.observe_property("speed", "number", speed_change)

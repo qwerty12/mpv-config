@@ -7,3 +7,5 @@
 /scripts/playlistmanager/playlistmanager.png
 /scripts/trakt-mpv/config.json
 *libfdk-aac*.*dll*
+*.rej
+*.orig
