@@ -188,7 +188,7 @@ Menus to select a track of a requested type.
 
 Displays a file explorer with directory navigation to load a requested track type.
 
-For subtitles, the explorer only displays file types defined in `subtitle_types` option. For audio and video, the ones defined in `media_types` are displayed.
+For subtitles, the explorer only displays file types defined in `subtitle_types` option. For audio and video, the ones defined in `video_types` and `audio_types` are displayed.
 
 #### `playlist`
 
@@ -208,7 +208,9 @@ Switch stream quality. This is just a basic re-assignment of `ytdl-format` mpv p
 
 #### `open-file`
 
-Open file menu. Browsing starts in current file directory, or user directory when file not available. The explorer only displays file types defined in the `media_types` option.
+Open file menu. Browsing starts in current file directory, or user directory when file not available. The explorer only displays file types defined in the `video_types`, `audio_types`, and `image_types` options.
+
+You can use `ctrl+enter` or `ctrl+click` to load the whole directory in mpv instead of navigating its contents.
 
 #### `items`
 
@@ -381,9 +383,9 @@ end)
 mp.commandv('script-message-to', 'uosc', 'get-version', mp.get_script_name())
 ```
 
-### `show-submenu <menu_id>`
+### `show-submenu <menu_id>`, `show-submenu-blurred <menu_id>`
 
-Opens one of the submenus defined in `input.conf` (read on how to build those in the Menu documentation above).
+Opens one of the submenus defined in `input.conf` (read on how to build those in the Menu documentation above). To prevent 1st item being preselected, use `show-submenu-blurred` instead.
 
 Parameters
 
