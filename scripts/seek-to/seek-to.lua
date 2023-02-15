@@ -1,7 +1,6 @@
--- https://github.com/dexeonify/mpv-config/blob/main/scripts/seek-to.lua @ c03d729801421bf8a1c6d26e17a432c863bf2d98
+-- https://github.com/dexeonify/mpv-config/blob/main/scripts/seek-to.lua @ 30070e882546847f79033a3a9688787fafb829a7
 -- Original script from https://github.com/occivink/mpv-scripts/blob/master/scripts/seek-to.lua
 
-local assdraw = require 'mp.assdraw'
 local utils = require 'mp.utils'
 local msg = require 'mp.msg'
 local active = false
@@ -182,6 +181,8 @@ function paste_timestamp()
     if match ~= nil then
         mp.osd_message("Timestamp pasted: " .. match)
         mp.commandv("osd-bar", "seek", match, "absolute")
+    else
+        msg.warn("No pastable timestamp found!")
     end
 end
 
