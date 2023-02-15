@@ -5,8 +5,7 @@ local function update_track_count()
     cycle_sub = true
     local sub_tracks_count = 0
     local all_tracks = mp.get_property_native("track-list", {})
-    local all_tracks_len = #all_tracks
-    for i = 1, all_tracks_len do
+    for i = 1, #all_tracks do
         if all_tracks[i].type == "sub" then
             sub_tracks_count = sub_tracks_count + 1
             if sub_tracks_count > sub_menu_threshold then

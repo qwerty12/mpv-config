@@ -27,74 +27,48 @@
 
 require "mp.msg"
 
-script_name = mp.get_script_name()
-detect_label = string.format("%s-detect", script_name)
-pullup_label = string.format("%s", script_name)
-dominance_label = string.format("%s-dominance", script_name)
-ivtc_detect_label = string.format("%s-ivtc-detect", script_name)
+local script_name = mp.get_script_name()
+local detect_label = string.format("%s-detect", script_name)
+local pullup_label = string.format("%s", script_name)
+local dominance_label = string.format("%s-dominance", script_name)
+local ivtc_detect_label = string.format("%s-ivtc-detect", script_name)
+
+local progressive, interlaced_tff, interlaced_bff, interlaced = 0, 1, 2, 3
 
 local timer = nil
-local autodetection_triggered = false
 
 -- number of seconds to gather cropdetect data
-detect_seconds = tonumber(mp.get_opt(string.format("%s.detect_seconds", script_name)))
+local detect_seconds = tonumber(mp.get_opt(string.format("%s.detect_seconds", script_name), nil))
 if not detect_seconds then
     detect_seconds = 4
 end
 
-function del_filter_if_present(label)
+local function del_filter_if_present(label)
     -- necessary because mp.command('vf del @label:filter') raises an
     -- error if the filter doesn't exist
-    local vfs = mp.get_property_native("vf")
+    local vfs = mp.get_property_native("vf", {})
+    if #vfs == 0 then return end
 
-    for i,vf in pairs(vfs) do
-        if vf["label"] == label then
-            table.remove(vfs, i)
-            mp.set_property_native("vf", vfs)
-            return true
+    for i = 1, #vfs do
+        if vfs[i]["label"] == label then
+            mp.command("no-osd vf remove @" .. label)
+            return
         end
     end
-    return false
 end
 
 local function add_vf(label, filter)
     return mp.command(('vf add @%s:%s'):format(label, filter))
 end
 
-function start_detect()
-    -- exit if detection is already in progress
-    if timer then
-        mp.msg.warn("already detecting!")
-        return
-    end
-
-    mp.set_property("deinterlace","no")
-    del_filter_if_present(pullup_label)
-    del_filter_if_present(dominance_label)
-
-    -- insert the detection filters
-    if not (add_vf(detect_label, 'idet') and
-            add_vf(dominance_label, 'setfield=mode=auto') and
-            add_vf(pullup_label, 'lavfi-pullup') and
-            add_vf(ivtc_detect_label, 'idet')) then
-        mp.msg.error("failed to insert detection filters")
-        return
-    end
-
-    -- wait to gather data
-    timer = mp.add_timeout(detect_seconds, select_filter)
-end
-
-function stop_detect()
+local function stop_detect()
     if timer then timer:kill() end
     del_filter_if_present(detect_label)
     del_filter_if_present(ivtc_detect_label)
     timer = nil
 end
 
-progressive, interlaced_tff, interlaced_bff, interlaced = 0, 1, 2, 3, 4
-
-function judge(label)
+local function judge(label)
     -- get the metadata
     local result = mp.get_property_native(string.format("vf-metadata/%s", label))
     if not result then
@@ -126,7 +100,7 @@ function judge(label)
     end
 end
 
-function select_filter()
+local function select_filter()
     -- handle the first detection filter results
     local verdict = judge(detect_label)
     local ivtc_verdict = judge(ivtc_detect_label)
@@ -161,15 +135,44 @@ function select_filter()
     end
 end
 
-mp.observe_property("video-format", "string", function(_, value)
-    if value == "mpeg2video" then
-        autodetection_triggered = true
-        start_detect()
-    else
-        if value and autodetection_triggered then
-            autodetection_triggered = false
-            stop_detect()
+local function start_detect(force)
+    if not force then
+        if mp.get_property("video-format") ~= "mpeg2video" then
+            return
         end
     end
+
+    -- exit if detection is already in progress
+    if timer then
+        mp.msg.warn("already detecting!")
+        return
+    end
+
+    mp.set_property("deinterlace","no")
+    del_filter_if_present(pullup_label)
+    del_filter_if_present(dominance_label)
+
+    -- insert the detection filters
+    if not (add_vf(detect_label, 'idet') and
+            add_vf(dominance_label, 'setfield=mode=auto') and
+            add_vf(pullup_label, 'lavfi-pullup') and
+            add_vf(ivtc_detect_label, 'idet')) then
+        mp.msg.error("failed to insert detection filters")
+        return
+    end
+
+    -- wait to gather data
+    timer = mp.add_timeout(detect_seconds, select_filter)
+end
+
+local function detect_on_idle()
+    mp.unregister_idle(detect_on_idle)
+    start_detect(false)
+end
+
+mp.register_event("file-loaded", function()
+    mp.unregister_idle(detect_on_idle)
+    stop_detect()
+    mp.register_idle(detect_on_idle)
 end)
-mp.add_key_binding(nil, script_name, start_detect)
+mp.add_key_binding(nil, script_name, function() start_detect(true) end)
