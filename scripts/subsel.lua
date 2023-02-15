@@ -39,10 +39,8 @@ local function select_sdh_if_no_ext_sub()
         end
     end
 
-    if new_sid == -1 and first_sid ~= -1 then
-        if all_tracks[first_sid]["lang"] == nil then
-            new_sid = first_sid
-        end
+    if current_sid == -1 and new_sid == -1 and first_sid ~= -1 and all_tracks[first_sid]["lang"] == nil then
+        new_sid = first_sid
     end
 
     if new_sid ~= -1 then
