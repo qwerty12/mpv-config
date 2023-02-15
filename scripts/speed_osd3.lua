@@ -1,17 +1,16 @@
 -- https://github.com/oltodosel/mpv-scripts/blob/master/speed_osd3.lua @ 2c968477fc20332ce1f4e3a71346f2187d4dfd44
 -- recalculates osd-msg3 timecodes with playback-speed != 1
 
-function disp_time(time)
+local function disp_time(time)
     local hours = math.floor(time/3600)
     local minutes = math.floor((time % 3600)/60)
     local seconds = math.floor(time % 60)
-    
+
     return string.format("%02d:%02d:%02d", hours, minutes, seconds)
 end
 
-function speed_change(name, value)
+local function speed_change(_, speed)
     local tp = mp.get_property_number("time-pos")
-    local speed = mp.get_property_number("speed")
     local dur = mp.get_property_number("duration")
     local pp = mp.get_property_number("percent-pos")
 
@@ -28,7 +27,7 @@ function speed_change(name, value)
 end
 
 local orig_opm = mp.get_property("osd-playing-msg", "")
-function started()
+local function started()
     local speed = mp.get_property_number("speed")
     local dur = mp.get_property_number("duration")
 
