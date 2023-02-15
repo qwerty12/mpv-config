@@ -31,7 +31,7 @@ local function select_sdh_if_no_ext_sub()
                 return
             end
 
-            if (track.title == "SDH" or track["hearing-impaired"] == true) and track["lang"]:find("^eng?") ~= nil then
+            if (track.lang:find("^eng?") ~= nil) and (track["hearing-impaired"] or track.title:find("SDH") ~= nil) then
                 new_sid = track.id
             elseif first_sid == -1 then
                 first_sid = track.id
