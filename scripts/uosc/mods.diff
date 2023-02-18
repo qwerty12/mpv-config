@@ -1,5 +1,5 @@
 diff --git a/scripts/uosc.lua b/scripts/uosc.lua
-index d58d8f6..6a00f6c 100644
+index 0fb1a10..1a3f862 100644
 --- a/scripts/uosc.lua
 +++ b/scripts/uosc.lua
 @@ -10,7 +10,7 @@ infinity = 1e309
@@ -11,7 +11,7 @@ index d58d8f6..6a00f6c 100644
  
  require('uosc_shared/lib/std')
  
-@@ -563,7 +563,6 @@ mp.observe_property('mouse-pos', 'native', update_mouse_pos)
+@@ -582,7 +582,6 @@ mp.observe_property('mouse-pos', 'native', update_mouse_pos)
  mp.observe_property('osc', 'bool', function(name, value) if value == true then mp.set_property('osc', 'no') end end)
  mp.register_event('file-loaded', function()
  	set_state('path', normalize_path(mp.get_property_native('path')))
@@ -45,7 +45,7 @@ index 82a7e43..f900bc9 100644
  
  	if self.paused then
 diff --git a/scripts/uosc_shared/elements/Timeline.lua b/scripts/uosc_shared/elements/Timeline.lua
-index 4030b2e..cbc592f 100644
+index 97f4224..7734e07 100644
 --- a/scripts/uosc_shared/elements/Timeline.lua
 +++ b/scripts/uosc_shared/elements/Timeline.lua
 @@ -83,6 +83,16 @@ function Timeline:get_time_at_x(x)
@@ -86,10 +86,10 @@ index 4030b2e..cbc592f 100644
  	ass:rect_cw(bax, bay, fax, bby) --left of progress
  	ass:rect_cw(fbx, bay, bbx, bby) --right of progress
 diff --git a/scripts/uosc_shared/elements/TopBar.lua b/scripts/uosc_shared/elements/TopBar.lua
-index 761d76b..ee643ce 100644
+index daf208a..38bc69e 100644
 --- a/scripts/uosc_shared/elements/TopBar.lua
 +++ b/scripts/uosc_shared/elements/TopBar.lua
-@@ -83,7 +83,7 @@ function TopBar:update_dimensions()
+@@ -112,7 +112,7 @@ function TopBar:update_dimensions()
  	self.size = state.fullormaxed and options.top_bar_size_fullscreen or options.top_bar_size
  	self.icon_size = round(self.size * 0.5)
  	self.spacing = math.ceil(self.size * 0.25)
@@ -98,7 +98,7 @@ index 761d76b..ee643ce 100644
  	self.button_width = round(self.size * 1.15)
  	self.ay = Elements.window_border.size
  	self.bx = display.width - Elements.window_border.size
-@@ -141,13 +141,13 @@ function TopBar:render()
+@@ -173,13 +173,13 @@ function TopBar:render()
  		-- Playlist position
  		if state.has_playlist then
  			local text = state.playlist_pos .. '' .. state.playlist_count
@@ -115,21 +115,27 @@ index 761d76b..ee643ce 100644
 +			title_ax = bx
  		end
  
- 		-- Title
-@@ -162,7 +162,7 @@ function TopBar:render()
- 			ass:rect(title_ax, title_ay, bx, by, {
- 				color = bg, opacity = visibility * options.top_bar_title_opacity, radius = 2,
- 			})
--			ass:txt(title_ax + padding, self.ay + (self.size / 2), 4, text, opts)
-+			ass:txt(title_ax + (state.has_playlist and 4 or padding), self.ay + (self.size / 2), 4, text, opts)
- 			title_ay = by + 1
- 		end
+ 		-- Skip rendering titles if there's not enough horizontal space
+@@ -191,12 +191,12 @@ function TopBar:render()
+ 					size = self.font_size, wrap = 2, color = bgt, border = 1, border_color = bg, opacity = visibility,
+ 					clip = string.format('\\clip(%d, %d, %d, %d)', self.ax, self.ay, max_bx, self.by),
+ 				}
+-				local bx = math.min(max_bx, title_ax + text_width(main_title, opts) + padding * 2)
++				local bx = math.min(max_bx, title_ax + text_width(main_title, opts) + padding)
+ 				local by = self.by - bg_margin
+ 				ass:rect(title_ax, title_ay, bx, by, {
+ 					color = bg, opacity = visibility * options.top_bar_title_opacity, radius = 2,
+ 				})
+-				ass:txt(title_ax + padding, self.ay + (self.size / 2), 4, main_title, opts)
++				ass:txt(title_ax + (state.has_playlist and 4 or padding), self.ay + (self.size / 2), 4, main_title, opts)
+ 				title_ay = by + 1
+ 			end
  
 diff --git a/scripts/uosc_shared/lib/menus.lua b/scripts/uosc_shared/lib/menus.lua
-index e2a4ccc..4b62d5f 100644
+index ff60837..192944d 100644
 --- a/scripts/uosc_shared/lib/menus.lua
 +++ b/scripts/uosc_shared/lib/menus.lua
-@@ -75,6 +75,7 @@ function create_select_tracklist_type_menu_opener(menu_title, track_type, track_
+@@ -82,6 +82,7 @@ function create_select_tracklist_type_menu_opener(menu_title, track_type, track_
  		local first_item_index = #items + 1
  		local active_index = nil
  		local disabled_item = nil
@@ -137,7 +143,7 @@ index e2a4ccc..4b62d5f 100644
  
  		-- Add option to disable a subtitle track. This works for all tracks,
  		-- but why would anyone want to disable audio or video? Better to not
-@@ -84,6 +85,7 @@ function create_select_tracklist_type_menu_opener(menu_title, track_type, track_
+@@ -91,6 +92,7 @@ function create_select_tracklist_type_menu_opener(menu_title, track_type, track_
  		if track_type == 'sub' then
  			disabled_item = {title = 'Disabled', italic = true, muted = true, hint = '—', value = nil, active = true}
  			items[#items + 1] = disabled_item
@@ -145,7 +151,7 @@ index e2a4ccc..4b62d5f 100644
  		end
  
  		for _, track in ipairs(tracklist) do
-@@ -105,7 +107,7 @@ function create_select_tracklist_type_menu_opener(menu_title, track_type, track_
+@@ -112,7 +114,7 @@ function create_select_tracklist_type_menu_opener(menu_title, track_type, track_
  
  				items[#items + 1] = {
  					title = (track.title and track.title or 'Track ' .. track.id),
@@ -155,7 +161,7 @@ index e2a4ccc..4b62d5f 100644
  					active = track.selected,
  				}
 diff --git a/scripts/uosc_shared/lib/utils.lua b/scripts/uosc_shared/lib/utils.lua
-index 0f13785..e49c492 100644
+index 45012d9..18b521c 100644
 --- a/scripts/uosc_shared/lib/utils.lua
 +++ b/scripts/uosc_shared/lib/utils.lua
 @@ -129,6 +129,13 @@ function ass_escape(str)
@@ -170,17 +176,17 @@ index 0f13785..e49c492 100644
 +end
 +
  ---@param seconds number
+ ---@param max_seconds number|nil Trims unnecessary `00:` if time is not expected to reach it.
  ---@return string
- function format_time(seconds)
-@@ -355,6 +362,7 @@ function navigate_directory(delta)
- 	local paths, current_index = get_adjacent_files(state.path, config.media_types)
+@@ -368,6 +375,7 @@ function navigate_directory(delta)
+ 	local paths, current_index = get_adjacent_files(state.path, config.types.autoload)
  	if paths and current_index then
  		local _, path = decide_navigation_in_list(paths, current_index, delta)
 +		if path then write_watch_later() end
  		if path then mp.commandv('loadfile', path) return true end
  	end
  	return false
-@@ -365,6 +373,7 @@ function navigate_playlist(delta)
+@@ -378,6 +386,7 @@ function navigate_playlist(delta)
  	local playlist, pos = mp.get_property_native('playlist'), mp.get_property_native('playlist-pos-1')
  	if playlist and #playlist > 1 and pos then
  		local index = decide_navigation_in_list(playlist, pos, delta)
