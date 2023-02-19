@@ -86,9 +86,18 @@ index 97f4224..7734e07 100644
  	ass:rect_cw(bax, bay, fax, bby) --left of progress
  	ass:rect_cw(fbx, bay, bbx, bby) --right of progress
 diff --git a/scripts/uosc_shared/elements/TopBar.lua b/scripts/uosc_shared/elements/TopBar.lua
-index daf208a..38bc69e 100644
+index daf208a..7f05b3e 100644
 --- a/scripts/uosc_shared/elements/TopBar.lua
 +++ b/scripts/uosc_shared/elements/TopBar.lua
+@@ -62,7 +62,7 @@ function TopBar:init()
+ 
+ 	-- Order aligns from right to left
+ 	self.buttons = {
+-		TopBarButton:new('tb_close', {icon = 'close', background = '2311e8', command = 'quit'}),
++		TopBarButton:new('tb_close', {icon = 'close', background = '2311e8', command = 'script-message-to jellyfin quit'}),
+ 		TopBarButton:new('tb_max', {icon = 'crop_square', background = '222222', command = get_maximized_command}),
+ 		TopBarButton:new('tb_min', {icon = 'minimize', background = '222222', command = 'cycle window-minimized'}),
+ 	}
 @@ -112,7 +112,7 @@ function TopBar:update_dimensions()
  	self.size = state.fullormaxed and options.top_bar_size_fullscreen or options.top_bar_size
  	self.icon_size = round(self.size * 0.5)
