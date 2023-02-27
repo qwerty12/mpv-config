@@ -62,7 +62,7 @@ function TopBar:init()
 
 	-- Order aligns from right to left
 	self.buttons = {
-		TopBarButton:new('tb_close', {icon = 'close', background = '2311e8', command = 'script-message-to jellyfin quit'}),
+		TopBarButton:new('tb_close', {icon = 'close', background = '2311e8', command = 'script-message-to jellyfin_shimc quit'}),
 		TopBarButton:new('tb_max', {icon = 'crop_square', background = '222222', command = get_maximized_command}),
 		TopBarButton:new('tb_min', {icon = 'minimize', background = '222222', command = 'cycle window-minimized'}),
 	}

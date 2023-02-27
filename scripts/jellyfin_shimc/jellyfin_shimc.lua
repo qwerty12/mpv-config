@@ -19,15 +19,16 @@
     "seek_down": -30,
     "seek_up": 30,
     "thumbnail_enable": false,
+    "thumbnail_osc_builtin": false,
 } ]]
 
 local is_jellyfin_env = mp.get_property("input-ipc-server") == "jellyfinmpv"
 
 local function init_window_shit()
     local window_shit = {
-        mpv_hwnd = nil
+        mpv_hwnd = nil,
+        ffi = require("ffi")
     }
-    window_shit.ffi = require("ffi")
 
     window_shit.ffi.cdef [[
         void* __stdcall FindWindowExA(void *hWndParent, void *hWndChildAfter, const char *lpszClass, const char *lpszWindow);
@@ -108,6 +109,12 @@ local function init_window_shit()
         end
     end
 
+    mp.observe_property("vo-configured", "bool", function(_, value)
+        if not value then
+            window_shit.mpv_hwnd = nil
+        end
+    end)
+
     return window_shit
 end
 
@@ -132,7 +139,7 @@ local function main()
         if not is_jellyfin_env then
             mp.command("quit")
         else
-            mp.commandv("script-message", "custom-bind", 'bind1')
+            mp.commandv("script-message", "custom-bind", "bind1")
         end
     end)
     mp.register_script_message("prev", function()
@@ -140,7 +147,7 @@ local function main()
         if not is_jellyfin_env then
             mp.command("playlist-prev")
         else
-            mp.commandv("script-message", "custom-bind", 'bind4')
+            mp.commandv("script-message", "custom-bind", "bind4")
         end
     end)
     mp.register_script_message("next", function()
@@ -148,7 +155,7 @@ local function main()
         if not is_jellyfin_env then
             mp.command("playlist-next")
         else
-            mp.commandv("script-message", "custom-bind", 'bind5')
+            mp.commandv("script-message", "custom-bind", "bind5")
         end
     end)
     if not is_jellyfin_env then return end
@@ -161,11 +168,6 @@ local function main()
     local window_shit = init_window_shit()
     mp.observe_property("pause", "bool", function(_, value)
         mp.set_property_native("ontop", not value)
-    end)
-    mp.observe_property("vo-configured", "bool", function(_, value)
-        if not value then
-            window_shit.mpv_hwnd = nil
-        end
     end)
     mp.register_event("file-loaded", function()
         mp.unobserve_property(on_not_core_idle)

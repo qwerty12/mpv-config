@@ -1,5 +1,5 @@
 diff --git a/scripts/uosc.lua b/scripts/uosc.lua
-index 0fb1a10..1a3f862 100644
+index 95637d5..4c452ec 100644
 --- a/scripts/uosc.lua
 +++ b/scripts/uosc.lua
 @@ -10,7 +10,7 @@ infinity = 1e309
@@ -86,7 +86,7 @@ index 97f4224..7734e07 100644
  	ass:rect_cw(bax, bay, fax, bby) --left of progress
  	ass:rect_cw(fbx, bay, bbx, bby) --right of progress
 diff --git a/scripts/uosc_shared/elements/TopBar.lua b/scripts/uosc_shared/elements/TopBar.lua
-index daf208a..7f05b3e 100644
+index daf208a..c1237a1 100644
 --- a/scripts/uosc_shared/elements/TopBar.lua
 +++ b/scripts/uosc_shared/elements/TopBar.lua
 @@ -62,7 +62,7 @@ function TopBar:init()
@@ -94,7 +94,7 @@ index daf208a..7f05b3e 100644
  	-- Order aligns from right to left
  	self.buttons = {
 -		TopBarButton:new('tb_close', {icon = 'close', background = '2311e8', command = 'quit'}),
-+		TopBarButton:new('tb_close', {icon = 'close', background = '2311e8', command = 'script-message-to jellyfin quit'}),
++		TopBarButton:new('tb_close', {icon = 'close', background = '2311e8', command = 'script-message-to jellyfin_shimc quit'}),
  		TopBarButton:new('tb_max', {icon = 'crop_square', background = '222222', command = get_maximized_command}),
  		TopBarButton:new('tb_min', {icon = 'minimize', background = '222222', command = 'cycle window-minimized'}),
  	}
@@ -141,10 +141,10 @@ index daf208a..7f05b3e 100644
  			end
  
 diff --git a/scripts/uosc_shared/lib/menus.lua b/scripts/uosc_shared/lib/menus.lua
-index ff60837..192944d 100644
+index 75f853b..a8d4f80 100644
 --- a/scripts/uosc_shared/lib/menus.lua
 +++ b/scripts/uosc_shared/lib/menus.lua
-@@ -82,6 +82,7 @@ function create_select_tracklist_type_menu_opener(menu_title, track_type, track_
+@@ -84,6 +84,7 @@ function create_select_tracklist_type_menu_opener(menu_title, track_type, track_
  		local first_item_index = #items + 1
  		local active_index = nil
  		local disabled_item = nil
@@ -152,7 +152,7 @@ index ff60837..192944d 100644
  
  		-- Add option to disable a subtitle track. This works for all tracks,
  		-- but why would anyone want to disable audio or video? Better to not
-@@ -91,6 +92,7 @@ function create_select_tracklist_type_menu_opener(menu_title, track_type, track_
+@@ -93,6 +94,7 @@ function create_select_tracklist_type_menu_opener(menu_title, track_type, track_
  		if track_type == 'sub' then
  			disabled_item = {title = 'Disabled', italic = true, muted = true, hint = '—', value = nil, active = true}
  			items[#items + 1] = disabled_item
@@ -160,7 +160,7 @@ index ff60837..192944d 100644
  		end
  
  		for _, track in ipairs(tracklist) do
-@@ -112,7 +114,7 @@ function create_select_tracklist_type_menu_opener(menu_title, track_type, track_
+@@ -114,7 +116,7 @@ function create_select_tracklist_type_menu_opener(menu_title, track_type, track_
  
  				items[#items + 1] = {
  					title = (track.title and track.title or 'Track ' .. track.id),

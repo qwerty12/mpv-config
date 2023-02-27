@@ -1,0 +1,1 @@
+require("jellyfin_shimc").main()
