@@ -1,6 +1,7 @@
 -- Assumes the following is present in jellyfin-mpv-shim's conf.json:
 --[[ {
     "direct_paths": true,
+    "connect_retry_mins": 1,
     "enable_osc": false,
     "kb_debug": "f23",
     "kb_kill_shader": "f23",
@@ -18,6 +19,8 @@
     "remote_direct_paths": true,
     "seek_down": -30,
     "seek_up": 30,
+    "shader_pack_enable": false,
+    "skip_intro_prompt": true,
     "thumbnail_enable": false,
     "thumbnail_osc_builtin": false,
 } ]]

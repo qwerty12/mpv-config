@@ -30,9 +30,11 @@ local function has_sub()
 	return false
 end
 
+local is_jellyfin_env = false
+
 local function is_likely_show(path)
-	return (path:find("\\Downloads\\TV\\", 1, true) ~= nil) or (path:find(".*[Ss]%d%d%d?[Ee]%d%d%d?.*") ~= nil) or
-	((path:find("\\Downloads\\src1\\", 1, true) ~= nil or path:find("\\Downloads\\src2\\", 1, true) ~= nil) and
+	return (is_jellyfin_env) or (path:find("\\Downloads\\TV\\", 1, true) ~= nil) or (path:find(".*[Ss]%d%d%d?[Ee]%d%d%d?.*") ~= nil) or
+	((path:find("\\Downloads\\src1\\", 1, true) ~= nil or path:find("\\Downloads\\_JD\\", 1, true) ~= nil) and
 	 (path:find(".*[xhXH]26[45].*") ~= nil))
 end
 
@@ -65,5 +67,6 @@ local function speed_up_shows()
 	end
 end
 if ffi.string(ffi.C.GetCommandLineA()):find(" --speed=") == nil then
+	is_jellyfin_env = loadfile(mp.get_script_directory() .. "/../jellyfin_shimc/jellyfin_shimc.lua")().is_jellyfin_env
 	mp.register_event("file-loaded", speed_up_shows)
 end
