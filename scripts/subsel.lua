@@ -46,7 +46,7 @@ local function select_sdh_if_no_ext_sub()
         mp.set_property_number("sid", new_sid)
     end
 end
-mp.register_event("file-loaded", select_sdh_if_no_ext_sub)
+mp.register_event("file-loaded", function() mp.add_timeout(1, select_sdh_if_no_ext_sub) end)
 
 -- local x = 0
 -- local properties = mp.get_property_native('property-list', {})
