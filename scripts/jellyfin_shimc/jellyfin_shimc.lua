@@ -10,6 +10,8 @@
     "kb_menu_ok": "f23",
     "kb_pause": "f23",
     "kb_watched": "i",
+    "lang_filter": "eng,und,mis,mul,zxx",
+    "lang_filter_sub": true,
     "media_keys": false,
     "menu_mouse": false,
     "mpv_ext": true,
