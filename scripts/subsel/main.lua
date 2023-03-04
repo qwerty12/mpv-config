@@ -1,6 +1,11 @@
 local sub_menu_threshold = 10
 local cycle_sub = true
 
+local ffi = require("ffi")
+ffi.cdef [[
+void __stdcall Sleep(unsigned long dwMilliseconds);
+]]
+
 local function update_track_count()
     cycle_sub = true
     local sub_tracks_count = 0
@@ -19,6 +24,10 @@ mp.register_event("file-loaded", update_track_count)
 mp.add_forced_key_binding("s", "subsel", function() mp.command(cycle_sub and "cycle sub" or "script-binding uosc/subtitles") end)
 
 local function select_sdh_if_no_ext_sub()
+    if loadfile(mp.get_script_directory() .. "/../jellyfin_shimc/jellyfin_shimc.lua")().is_jellyfin_env then
+        mp.set_property("sid", "auto") -- work-around Jellyfin's bad automatic subtitle lang selection
+        ffi.C.Sleep(100)
+    end
     local current_sid = mp.get_property_number("sid", -1)
     local new_sid = -1
     local first_sid = -1
@@ -46,15 +55,18 @@ local function select_sdh_if_no_ext_sub()
         mp.set_property_number("sid", new_sid)
     end
 end
-mp.register_event("file-loaded", function() mp.add_timeout(1, select_sdh_if_no_ext_sub) end)
 
--- local x = 0
+--local count = 0
+mp.register_event("file-loaded", function()
 -- local properties = mp.get_property_native('property-list', {})
 -- local txt = ""
 -- for _,property in ipairs(properties) do
 --     txt = txt .. property .. ": " .. mp.get_property(property, "") .. "\r\n"
 -- end
--- file = io.open(x .. ".txt", "w")
--- x = x + 1
--- file:write(txt)
--- file:close()
+-- local dest_file = io.open(os.getenv("TEMP") .. "\\" .. count .. "__mp__properties__.txt", "w")
+-- count = count + 1
+-- dest_file:write(txt)
+-- dest_file:close()
+
+    mp.add_timeout(1.2, select_sdh_if_no_ext_sub)
+end)
