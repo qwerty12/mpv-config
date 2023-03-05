@@ -144,6 +144,7 @@ local function main()
         if not is_jellyfin_env then
             mp.command("quit")
         else
+            -- found with an amazing print(event) added to handle_client_message() in player.py
             mp.commandv("script-message", "custom-bind", "bind1")
         end
     end)
@@ -161,6 +162,13 @@ local function main()
             mp.command("playlist-next")
         else
             mp.commandv("script-message", "custom-bind", "bind5")
+        end
+    end)
+    mp.register_script_message("seek-forward", function()
+        if not is_jellyfin_env then
+            mp.command("no-osd seek 5")
+        else
+            mp.commandv("script-message", "custom-bind", "bind16")
         end
     end)
     if not is_jellyfin_env then return end
