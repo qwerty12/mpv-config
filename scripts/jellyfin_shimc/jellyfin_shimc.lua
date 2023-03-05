@@ -178,6 +178,7 @@ local function main()
         mp.unobserve_property(on_not_core_idle)
         window_shit.do_focus()
         mp.observe_property("core-idle", "bool", on_not_core_idle)
+        mp.commandv("apply-profile", "slow-igpu", mp.get_property_number("width") >= 3840 and "apply" or "restore")
     end)
 end
 
