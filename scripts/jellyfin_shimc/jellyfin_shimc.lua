@@ -160,7 +160,14 @@ local function main()
             mp.commandv("script-message", "custom-bind", "bind16")
         end
     end)
-    if not is_jellyfin_env then return end
+    if not is_jellyfin_env then
+        -- Exit fullscreen at the end of a playlist
+        mp.observe_property("eof-reached", "bool", function(_, value)
+            if value then mp.set_property_bool("fullscreen", false) end
+        end)
+
+        return
+    end
 
     mp.set_property("keep-open", "no")
     local window_shit = init_window_shit()
