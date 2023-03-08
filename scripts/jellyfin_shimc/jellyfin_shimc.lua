@@ -128,19 +128,6 @@ local function save_state()
     mp.command("write-watch-later-config ; script-message-to auto_save_state skip-delete-state")
 end
 
-local function on_not_core_idle(_, value)
-    if value then return end
-    mp.unobserve_property(on_not_core_idle)
-    mp.commandv("apply-profile", "slow-igpu", mp.get_property_number("width") >= 3840 and "apply" or "restore")
-    local channels = mp.get_property_number("audio-params/channel-count", -1)
-    if channels == -1 then return end
-    if channels > 2 then
-        mp.command("apply-profile downmix-51")
-    else
-        mp.command("apply-profile louder-2ch")
-    end
-end
-
 local function main()
     mp.register_script_message("quit", function()
         if not is_jellyfin_env then
@@ -175,19 +162,10 @@ local function main()
     end)
     if not is_jellyfin_env then return end
 
-    -- apply some profiles manually because, for whatever reason, jellyfin's shim does not play nice with mpv's auto profiles
-    mp.set_property("load-auto-profiles", "no")
-    mp.set_property("priority", "high")
-    mp.set_property("resume-playback", "no")
     mp.set_property("keep-open", "no")
     local window_shit = init_window_shit()
-    mp.observe_property("pause", "bool", function(_, value)
-        mp.set_property_native("ontop", not value)
-    end)
     mp.register_event("file-loaded", function()
-        mp.unobserve_property(on_not_core_idle)
         window_shit.do_focus()
-        mp.observe_property("core-idle", "bool", on_not_core_idle)
     end)
 end
 
