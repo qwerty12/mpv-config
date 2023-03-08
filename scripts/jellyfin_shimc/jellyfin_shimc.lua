@@ -18,6 +18,7 @@
     "mpv_ext_ipc": "jellyfinmpv",
     "mpv_ext_no_ovr": true,
     "mpv_ext_path": "C:\\Users\\fp\\scoop\\apps\\mpv-git\\current\\mpv.exe",
+    "player_name": "mpv",
     "remote_direct_paths": true,
     "seek_down": -30,
     "seek_up": 30,
@@ -130,6 +131,7 @@ end
 local function on_not_core_idle(_, value)
     if value then return end
     mp.unobserve_property(on_not_core_idle)
+    mp.commandv("apply-profile", "slow-igpu", mp.get_property_number("width") >= 3840 and "apply" or "restore")
     local channels = mp.get_property_number("audio-params/channel-count", -1)
     if channels == -1 then return end
     if channels > 2 then
@@ -186,7 +188,6 @@ local function main()
         mp.unobserve_property(on_not_core_idle)
         window_shit.do_focus()
         mp.observe_property("core-idle", "bool", on_not_core_idle)
-        mp.commandv("apply-profile", "slow-igpu", mp.get_property_number("width") >= 3840 and "apply" or "restore")
     end)
 end
 
