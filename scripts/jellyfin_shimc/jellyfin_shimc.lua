@@ -171,8 +171,18 @@ local function main()
 
     mp.set_property("keep-open", "no")
     local window_shit = init_window_shit()
+    local resume_enable_timer = mp.add_timeout(5, function() mp.set_property_bool("resume-playback", true) end)
+    resume_enable_timer:kill()
     mp.register_event("file-loaded", function()
         window_shit.do_focus()
+    end)
+    mp.observe_property("vo-configured", "bool", function(_, value)
+        resume_enable_timer:kill()
+        if not value then
+            mp.set_property_bool("resume-playback", false)
+        else
+            resume_enable_timer:resume()
+        end
     end)
 end
 
