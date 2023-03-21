@@ -1,13 +1,17 @@
 -- Assumes the following is present in jellyfin-mpv-shim's conf.json:
 --[[ {
-    "direct_paths": true,
     "connect_retry_mins": 1,
+    "direct_paths": true,
     "enable_osc": false,
     "kb_debug": "f23",
     "kb_kill_shader": "f23",
     "kb_menu": "f23",
+    "kb_menu_down": "f23",
     "kb_menu_esc": "f23",
+    "kb_menu_left": "f23",
     "kb_menu_ok": "f23",
+    "kb_menu_right": "f23",
+    "kb_menu_up": "f23",
     "kb_pause": "f23",
     "kb_watched": "i",
     "lang_filter": "eng,und,mis,mul,zxx",
@@ -153,13 +157,14 @@ local function main()
             mp.commandv("script-message", "custom-bind", "bind5")
         end
     end)
-    mp.register_script_message("seek-forward", function()
+    mp.register_script_message("seek-forward-uosc", function()
         if not is_jellyfin_env then
             mp.command("no-osd seek 5")
         else
             mp.commandv("script-message", "custom-bind", "bind16")
         end
     end)
+
     if not is_jellyfin_env then
         -- Exit fullscreen at the end of a playlist
         mp.observe_property("eof-reached", "bool", function(_, value)
@@ -170,6 +175,10 @@ local function main()
     end
 
     mp.set_property("keep-open", "no")
+    mp.add_forced_key_binding("LEFT", nil, function() mp.command("script-message custom-bind bind15 ; osd-msg show-progress ; script-binding uosc/flash-timeline") end, {repeatable = true})
+    mp.add_forced_key_binding("RIGHT", nil, function() mp.command("script-message custom-bind bind16 ; osd-msg show-progress ; script-binding uosc/flash-timeline") end, {repeatable = true})
+    mp.add_forced_key_binding("DOWN", nil, function() mp.command("script-message custom-bind bind18 ; osd-msg show-progress ; script-binding uosc/flash-timeline") end, {repeatable = true})
+    mp.add_forced_key_binding("UP", nil, function() mp.command("script-message custom-bind bind17 ; osd-msg show-progress ; script-binding uosc/flash-timeline") end, {repeatable = true})
     local window_shit = init_window_shit()
     local resume_enable_timer = mp.add_timeout(5, function() mp.set_property_bool("resume-playback", true) end)
     resume_enable_timer:kill()
