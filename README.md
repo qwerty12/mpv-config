@@ -57,3 +57,5 @@ https://github.com/he2a/mpv-config/
 https://github.com/DrPleaseRespect/DrPleaseRespect-MPV-Config/
 
 https://github.com/deus0ww/mpv-conf/
+
+https://codeberg.org/kevincs/config_files/src/branch/main/mpv
