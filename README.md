@@ -24,9 +24,11 @@ Config for [mpv](https://mpv.io/). I use this on Windows with [my modified night
 
 * Files without subtitles in certain folders with certain matching characters in their filenames get sped up to 1.25x automatically - see speedtoggle.lua
 
-* Downmixing of 7.1/5.1 channel audio to 2 channels is done with [this](https://github.com/mpv-player/mpv/issues/6343#issuecomment-517212825) filter line because I liked how the end result sounded the most. You might prefer the filters [here](https://github.com/mpv-player/mpv/issues/6563) or [here](https://github.com/DrPleaseRespect/DrPleaseRespect-MPV-Config/blob/main/mpv.conf#L90), or just simply setting `audio-channels=stereo`.
+* Downmixing of 7.1/5.1 channel audio is done with sofalizer/ClubFritz6
 
-    * For 2 channel audio, some `dynaudnorm` filter line I found on the Internet years ago is used to make sound louder
+    * You might want to set your output device to sample at 48000Hz in the Control Panel if using CF6
+
+        * ref: ["I noticed the ClubFritz4 downsamples to 44100Hz, while ClubFritz6.sofa is 48000Hz, my DAC doesn't support 44100Hz, so with ClubFritz4 it's being upsampled to back to 48000Hz (by pipewire or pulseaudio I'm guessing). So using ClubFritz6 avoids that second resampling."](https://old.reddit.com/r/mpv/comments/11cr5u9/is_it_possible_to_use_the_headphone_filter/jc7rqn6/)
 
 * The Cascadia Mono font should be present on your system. I think it comes with Windows 11 or the new Windows Terminal or both.
 
