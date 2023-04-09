@@ -106,6 +106,7 @@ defaults = {
 	subtitle_types = 'aqt,ass,gsub,idx,jss,lrc,mks,pgs,pjs,psb,rt,slt,smi,sub,sup,srt,ssa,ssf,ttxt,txt,usf,vt,vtt',
 	default_directory = '~/',
 	use_trash = false,
+	adjust_osd_margins = true,
 	chapter_ranges = 'openings:30abf964,endings:30abf964,ads:c54e4e80',
 	chapter_range_patterns = 'openings:オープニング;endings:エンディング',
 }
@@ -170,6 +171,10 @@ config = {
 	-- native rendering frequency could not be detected
 	render_delay = 1 / 60,
 	font = mp.get_property('options/osd-font'),
+	osd_margin_x = mp.get_property('osd-margin-x'),
+	osd_margin_y = mp.get_property('osd-margin-y'),
+	osd_alignment_x = mp.get_property('osd-align-x'),
+	osd_alignment_y = mp.get_property('osd-align-y'),
 	types = {
 		video = split(options.video_types, ' *, *'),
 		audio = split(options.audio_types, ' *, *'),
@@ -302,8 +307,8 @@ cursor = {
 	hidden = true,
 	hover_raw = false,
 	-- Event handlers that are only fired on cursor, bound during render loop. Guidelines:
-	-- - element activations (clicks) go to `mbtn_left_down` handler
-	-- - `mbtn_button_up` is only for clearing dragging/swiping
+	-- - element activations (clicks) go to `on_primary_down` handler
+	-- - `on_primary_up` is only for clearing dragging/swiping, and prevents autohide when bound
 	on_primary_down = nil,
 	on_primary_up = nil,
 	on_wheel_down = nil,
@@ -314,11 +319,32 @@ cursor = {
 		cursor.on_wheel_down, cursor.on_wheel_up = nil, nil
 	end,
 	-- Enables pointer key group captures needed by handlers (called at the end of each render)
+	mbtn_left_enabled = nil,
+	wheel_enabled = nil,
 	decide_keybinds = function()
-		local mbtn_left_decision = (cursor.on_primary_down or cursor.on_primary_up) and 'enable' or 'disable'
-		local wheel_decision = (cursor.on_wheel_down or cursor.on_wheel_up) and 'enable' or 'disable'
-		mp[mbtn_left_decision .. '_key_bindings']('mbtn_left')
-		mp[wheel_decision .. '_key_bindings']('wheel')
+		local enable_mbtn_left = (cursor.on_primary_down or cursor.on_primary_up) ~= nil
+		local enable_wheel = (cursor.on_wheel_down or cursor.on_wheel_up) ~= nil
+		if enable_mbtn_left ~= cursor.mbtn_left_enabled then
+			mp[(enable_mbtn_left and 'enable' or 'disable') .. '_key_bindings']('mbtn_left')
+			cursor.mbtn_left_enabled = enable_mbtn_left
+		end
+		if enable_wheel ~= cursor.wheel_enabled then
+			mp[(enable_wheel and 'enable' or 'disable') .. '_key_bindings']('wheel')
+			cursor.wheel_enabled = enable_wheel
+		end
+	end,
+	-- Cursor auto-hiding after period of inactivity
+	autohide = function()
+		if not cursor.on_primary_up and not Menu:is_open() then handle_mouse_leave() end
+	end,
+	autohide_timer = mp.add_timeout(mp.get_property_native('cursor-autohide') / 1000, function()
+		cursor.autohide()
+	end),
+	queue_autohide = function()
+		if options.autohide and not cursor.on_primary_up then
+			cursor.autohide_timer:kill()
+			cursor.autohide_timer:resume()
+		end
 	end
 }
 state = {
@@ -365,10 +391,6 @@ state = {
 	has_chapter = false,
 	has_playlist = false,
 	shuffle = options.shuffle,
-	cursor_autohide_timer = mp.add_timeout(mp.get_property_native('cursor-autohide') / 1000, function()
-		if not options.autohide then return end
-		handle_mouse_leave()
-	end),
 	mouse_bindings_enabled = false,
 	uncached_ranges = nil,
 	cache = nil,
@@ -382,6 +404,8 @@ state = {
 	playlist_pos = 0,
 	margin_top = 0,
 	margin_bottom = 0,
+	margin_left = 0,
+	margin_right = 0,
 	hidpi_scale = 1,
 }
 thumbnail = {width = 0, height = 0, disabled = false}
@@ -419,7 +443,7 @@ function update_fullormaxed()
 	state.fullormaxed = state.fullscreen or state.maximized
 	update_display_dimensions()
 	Elements:trigger('prop_fullormaxed', state.fullormaxed)
-	handle_mouse_move(INFINITY, INFINITY)
+	update_cursor_position(INFINITY, INFINITY)
 end
 
 function update_human_times()
@@ -446,22 +470,40 @@ end
 function update_margins()
 	if display.height == 0 then return end
 
+	local function is_persistent(element) return element and element.enabled and element:is_persistent() end
+	local timeline, top_bar, controls, volume = Elements.timeline, Elements.top_bar, Elements.controls, Elements.volume
 	-- margins are normalized to window size
-	local timeline, top_bar, controls = Elements.timeline, Elements.top_bar, Elements.controls
-	local bottom_y = controls and controls.enabled and controls.ay or timeline.ay
-	local top, bottom = 0, (display.height - bottom_y) / display.height
+	local left, right, top, bottom = 0, 0, 0, 0
 
-	if top_bar.enabled and top_bar:get_visibility() > 0 then
-		top = (top_bar.size or 0) / display.height
+	if is_persistent(controls) then bottom = (display.height - controls.ay) / display.height
+	elseif is_persistent(timeline) then bottom = (display.height - timeline.ay) / display.height end
+
+	if is_persistent(top_bar) then top = top_bar.title_by / display.height end
+
+	if is_persistent(volume) then
+		if options.volume == 'left' then left = volume.bx / display.width
+		elseif options.volume == 'right' then right = volume.ax / display.width end
 	end
 
-	if top == state.margin_top and bottom == state.margin_bottom then return end
+	if top == state.margin_top and bottom == state.margin_bottom and
+		left == state.margin_left and right == state.margin_right then return end
 
 	state.margin_top = top
 	state.margin_bottom = bottom
+	state.margin_left = left
+	state.margin_right = right
 
 	utils.shared_script_property_set('osc-margins', string.format('%f,%f,%f,%f', 0, 0, top, bottom))
-	mp.set_property_native("user-data/osc/margins", { l = 0, r = 0, t = top, b = bottom })
+	mp.set_property_native('user-data/osc/margins', { l = left, r = right, t = top, b = bottom })
+
+	if not options.adjust_osd_margins then return end
+	local osd_margin_y, osd_margin_x, osd_factor_x = 0, 0, display.width / display.height * 720
+	if config.osd_alignment_y == 'bottom' then osd_margin_y = round(bottom * 720)
+	elseif config.osd_alignment_y == 'top' then osd_margin_y = round(top * 720) end
+	if config.osd_alignment_x == 'left' then osd_margin_x = round(left * osd_factor_x)
+	elseif config.osd_alignment_x == 'right' then osd_margin_x = round(right * osd_factor_x) end
+	mp.set_property_native('osd-margin-y', osd_margin_y + config.osd_margin_y)
+	mp.set_property_native('osd-margin-x', osd_margin_x + config.osd_margin_x)
 end
 function create_state_setter(name, callback)
 	return function(_, value)
@@ -477,6 +519,8 @@ function set_state(name, value)
 end
 
 function update_cursor_position(x, y)
+	local old_x, old_y = cursor.x, cursor.y
+
 	-- mpv reports initial mouse position on linux as (0, 0), which always
 	-- displays the top bar, so we hardcode cursor position as infinity until
 	-- we receive a first real mouse move event with coordinates other than 0,0.
@@ -488,7 +532,21 @@ function update_cursor_position(x, y)
 	-- add 0.5 to be in the middle of the pixel
 	cursor.x, cursor.y = (x + 0.5) / display.scale_x, (y + 0.5) / display.scale_y
 
-	Elements:update_proximities()
+	if old_x ~= cursor.x or old_y ~= cursor.y then
+		Elements:update_proximities()
+
+		if cursor.x == INFINITY or cursor.y == INFINITY then
+			cursor.hidden = true
+			Elements:trigger('global_mouse_leave')
+		elseif cursor.hidden then
+			cursor.hidden = false
+			Elements:trigger('global_mouse_enter')
+		end
+
+		Elements:proximity_trigger('mouse_move')
+		cursor.queue_autohide()
+	end
+
 	request_render()
 end
 
@@ -503,27 +561,7 @@ function handle_mouse_leave()
 		end
 	end
 
-	cursor.hidden = true
-	Elements:update_proximities()
-	Elements:trigger('global_mouse_leave')
-end
-
-function handle_mouse_enter(x, y)
-	cursor.hidden = false
-	update_cursor_position(x, y)
-	Elements:trigger('global_mouse_enter')
-end
-
-function handle_mouse_move(x, y)
-	update_cursor_position(x, y)
-	Elements:proximity_trigger('mouse_move')
-	request_render()
-
-	-- Restart timer that hides UI when mouse is autohidden
-	if options.autohide then
-		state.cursor_autohide_timer:kill()
-		state.cursor_autohide_timer:resume()
-	end
+	update_cursor_position(INFINITY, INFINITY)
 end
 
 function handle_file_end()
@@ -599,17 +637,16 @@ if options.click_threshold > 0 then
 	mp.enable_key_bindings('mouse_movement', 'allow-vo-dragging+allow-hide-cursor')
 end
 
-function update_mouse_pos(_, mouse)
+function handle_mouse_pos(_, mouse)
 	if not mouse then return end
 	if cursor.hover_raw and not mouse.hover then
 		handle_mouse_leave()
 	else
-		if cursor.hidden then handle_mouse_enter(mouse.x, mouse.y) end
-		handle_mouse_move(mouse.x, mouse.y)
+		update_cursor_position(mouse.x, mouse.y)
 	end
 	cursor.hover_raw = mouse.hover
 end
-mp.observe_property('mouse-pos', 'native', update_mouse_pos)
+mp.observe_property('mouse-pos', 'native', handle_mouse_pos)
 mp.observe_property('osc', 'bool', function(name, value) if value == true then mp.set_property('osc', 'no') end end)
 mp.register_event('file-loaded', function()
 	set_state('path', normalize_path(mp.get_property_native('path')))
@@ -799,20 +836,26 @@ mp.observe_property('core-idle', 'native', create_state_setter('core_idle'))
 --[[ KEY BINDS ]]
 
 -- Pointer related binding groups
+function make_cursor_handler(event, cb)
+	return function(...)
+		call_maybe(cursor[event], ...)
+		call_maybe(cb, ...)
+		cursor.queue_autohide() -- refresh cursor autohide timer
+	end
+end
 mp.set_key_bindings({
 	{
 		'mbtn_left',
-		function(...) call_maybe(cursor.on_primary_up, ...) end,
-		function(...)
-			update_mouse_pos(nil, mp.get_property_native('mouse-pos'))
-			call_maybe(cursor.on_primary_down, ...)
-		end,
+		make_cursor_handler('on_primary_up'),
+		make_cursor_handler('on_primary_down', function(...)
+			handle_mouse_pos(nil, mp.get_property_native('mouse-pos'))
+		end),
 	},
 	{'mbtn_left_dbl', 'ignore'},
 }, 'mbtn_left', 'force')
 mp.set_key_bindings({
-	{'wheel_up', function(...) call_maybe(cursor.on_wheel_up, ...) end},
-	{'wheel_down', function(...) call_maybe(cursor.on_wheel_down, ...) end},
+	{'wheel_up', make_cursor_handler('on_wheel_up')},
+	{'wheel_down', make_cursor_handler('on_wheel_down')},
 }, 'wheel', 'force')
 
 -- Adds a key binding that respects rerouting set by `key_binding_overwrites` table.
