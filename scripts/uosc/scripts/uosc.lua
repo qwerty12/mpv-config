@@ -1,5 +1,5 @@
---[[ uosc 4.6.0 - 2023-Feb-15 | https://github.com/tomasklaen/uosc ]]
-local uosc_version = '4.6.0'
+--[[ uosc 4.7.0 - 2023-Apr-15 | https://github.com/tomasklaen/uosc ]]
+local uosc_version = '4.7.0'
 
 assdraw = require('mp.assdraw')
 opt = require('mp.options')
@@ -109,6 +109,7 @@ defaults = {
 	adjust_osd_margins = true,
 	chapter_ranges = 'openings:30abf964,endings:30abf964,ads:c54e4e80',
 	chapter_range_patterns = 'openings:オープニング;endings:エンディング',
+	languages = 'slang,en',
 }
 options = table_shallow_copy(defaults)
 opt.read_options(options, 'uosc')
@@ -131,37 +132,41 @@ if options.autoload then mp.commandv('set', 'keep-open-pause', 'no') end
 fg, bg = serialize_rgba(options.foreground).color, serialize_rgba(options.background).color
 fgt, bgt = serialize_rgba(options.foreground_text).color, serialize_rgba(options.background_text).color
 
+--[[ INTERNATIONALIZATION ]]
+local intl = require('uosc_shared/lib/intl')
+t = intl.t
+
 --[[ CONFIG ]]
 
 function create_default_menu()
 	return {
-		{title = 'Subtitles', value = 'script-binding uosc/subtitles'},
-		{title = 'Audio tracks', value = 'script-binding uosc/audio'},
-		{title = 'Stream quality', value = 'script-binding uosc/stream-quality'},
-		{title = 'Playlist', value = 'script-binding uosc/items'},
-		{title = 'Chapters', value = 'script-binding uosc/chapters'},
-		{title = 'Navigation', items = {
-			{title = 'Next', hint = 'playlist or file', value = 'script-binding uosc/next'},
-			{title = 'Prev', hint = 'playlist or file', value = 'script-binding uosc/prev'},
-			{title = 'Delete file & Next', value = 'script-binding uosc/delete-file-next'},
-			{title = 'Delete file & Prev', value = 'script-binding uosc/delete-file-prev'},
-			{title = 'Delete file & Quit', value = 'script-binding uosc/delete-file-quit'},
-			{title = 'Open file', value = 'script-binding uosc/open-file'},
+		{title = t('Subtitles'), value = 'script-binding uosc/subtitles'},
+		{title = t('Audio tracks'), value = 'script-binding uosc/audio'},
+		{title = t('Stream quality'), value = 'script-binding uosc/stream-quality'},
+		{title = t('Playlist'), value = 'script-binding uosc/items'},
+		{title = t('Chapters'), value = 'script-binding uosc/chapters'},
+		{title = t('Navigation'), items = {
+			{title = t('Next'), hint = t('playlist or file'), value = 'script-binding uosc/next'},
+			{title = t('Prev'), hint = t('playlist or file'), value = 'script-binding uosc/prev'},
+			{title = t('Delete file & Next'), value = 'script-binding uosc/delete-file-next'},
+			{title = t('Delete file & Prev'), value = 'script-binding uosc/delete-file-prev'},
+			{title = t('Delete file & Quit'), value = 'script-binding uosc/delete-file-quit'},
+			{title = t('Open file'), value = 'script-binding uosc/open-file'},
 		},},
-		{title = 'Utils', items = {
-			{title = 'Aspect ratio', items = {
-				{title = 'Default', value = 'set video-aspect-override "-1"'},
+		{title = t('Utils'), items = {
+			{title = t('Aspect ratio'), items = {
+				{title = t('Default'), value = 'set video-aspect-override "-1"'},
 				{title = '16:9', value = 'set video-aspect-override "16:9"'},
 				{title = '4:3', value = 'set video-aspect-override "4:3"'},
 				{title = '2.35:1', value = 'set video-aspect-override "2.35:1"'},
 			},},
-			{title = 'Audio devices', value = 'script-binding uosc/audio-device'},
-			{title = 'Editions', value = 'script-binding uosc/editions'},
-			{title = 'Screenshot', value = 'async screenshot'},
-			{title = 'Show in directory', value = 'script-binding uosc/show-in-directory'},
-			{title = 'Open config folder', value = 'script-binding uosc/open-config-directory'},
+			{title = t('Audio devices'), value = 'script-binding uosc/audio-device'},
+			{title = t('Editions'), value = 'script-binding uosc/editions'},
+			{title = t('Screenshot'), value = 'async screenshot'},
+			{title = t('Show in directory'), value = 'script-binding uosc/show-in-directory'},
+			{title = t('Open config folder'), value = 'script-binding uosc/open-config-directory'},
 		},},
-		{title = 'Quit', value = 'quit'},
+		{title = t('Quit'), value = 'quit'},
 	}
 end
 
@@ -337,9 +342,11 @@ cursor = {
 	autohide = function()
 		if not cursor.on_primary_up and not Menu:is_open() then handle_mouse_leave() end
 	end,
-	autohide_timer = mp.add_timeout(mp.get_property_native('cursor-autohide') / 1000, function()
-		cursor.autohide()
-	end),
+	autohide_timer = (function()
+		local timer = mp.add_timeout(mp.get_property_native('cursor-autohide') / 1000, function() cursor.autohide() end)
+		timer:kill()
+		return timer
+	end)(),
 	queue_autohide = function()
 		if options.autohide and not cursor.on_primary_up then
 			cursor.autohide_timer:kill()
@@ -470,17 +477,19 @@ end
 function update_margins()
 	if display.height == 0 then return end
 
-	local function is_persistent(element) return element and element.enabled and element:is_persistent() end
+	local function causes_margin(element)
+		return element and element.enabled and (element:is_persistent() or element.min_visibility > 0.5)
+	end
 	local timeline, top_bar, controls, volume = Elements.timeline, Elements.top_bar, Elements.controls, Elements.volume
 	-- margins are normalized to window size
 	local left, right, top, bottom = 0, 0, 0, 0
 
-	if is_persistent(controls) then bottom = (display.height - controls.ay) / display.height
-	elseif is_persistent(timeline) then bottom = (display.height - timeline.ay) / display.height end
+	if causes_margin(controls) then bottom = (display.height - controls.ay) / display.height
+	elseif causes_margin(timeline) then bottom = (display.height - timeline.ay) / display.height end
 
-	if is_persistent(top_bar) then top = top_bar.title_by / display.height end
+	if causes_margin(top_bar) then top = top_bar.title_by / display.height end
 
-	if is_persistent(volume) then
+	if causes_margin(volume) then
 		if options.volume == 'left' then left = volume.bx / display.width
 		elseif options.volume == 'right' then right = volume.ax / display.width end
 	end
@@ -652,6 +661,7 @@ mp.register_event('file-loaded', function()
 	set_state('path', normalize_path(mp.get_property_native('path')))
 end)
 mp.register_event('end-file', function(event)
+	set_state('path', nil)
 	if event.reason == 'eof' then
 		file_end_timer:kill()
 		handle_file_end()
@@ -915,21 +925,21 @@ for _, loader in ipairs(track_loaders) do
 		open_file_navigation_menu(
 			path,
 			function(path) mp.commandv(loader.prop .. '-add', path) end,
-			{type = menu_type, title = 'Load ' .. loader.name, allowed_types = loader.allowed_types}
+			{type = menu_type, title = t('Load ' .. loader.name), allowed_types = loader.allowed_types}
 		)
 	end)
 end
 bind_command('subtitles', create_select_tracklist_type_menu_opener(
-	'Subtitles', 'sub', 'sid', 'script-binding uosc/load-subtitles'
+	t('Subtitles'), 'sub', 'sid', 'script-binding uosc/load-subtitles'
 ))
 bind_command('audio', create_select_tracklist_type_menu_opener(
-	'Audio', 'audio', 'aid', 'script-binding uosc/load-audio'
+	t('Audio'), 'audio', 'aid', 'script-binding uosc/load-audio'
 ))
 bind_command('video', create_select_tracklist_type_menu_opener(
-	'Video', 'video', 'vid', 'script-binding uosc/load-video'
+	t('Video'), 'video', 'vid', 'script-binding uosc/load-video'
 ))
 bind_command('playlist', create_self_updating_menu_opener({
-	title = 'Playlist',
+	title = t('Playlist'),
 	type = 'playlist',
 	list_prop = 'playlist',
 	serializer = function(playlist)
@@ -953,7 +963,7 @@ bind_command('playlist', create_self_updating_menu_opener({
 	on_delete_item = function(index) mp.commandv('playlist-remove', tostring(index - 1)) end,
 }))
 bind_command('chapters', create_self_updating_menu_opener({
-	title = 'Chapters',
+	title = t('Chapters'),
 	type = 'chapters',
 	list_prop = 'chapter-list',
 	active_prop = 'chapter',
@@ -973,16 +983,17 @@ bind_command('chapters', create_self_updating_menu_opener({
 	on_select = function(index) mp.commandv('set', 'chapter', tostring(index - 1)) end,
 }))
 bind_command('editions', create_self_updating_menu_opener({
-	title = 'Editions',
+	title = t('Editions'),
 	type = 'editions',
 	list_prop = 'edition-list',
 	active_prop = 'current-edition',
 	serializer = function(editions, current_id)
 		local items = {}
 		for _, edition in ipairs(editions or {}) do
+			local edition_id_1 = tostring(edition.id + 1)
 			items[#items + 1] = {
-				title = edition.title or 'Edition',
-				hint = tostring(edition.id + 1),
+				title = edition.title or t('Edition %s', edition_id_1),
+				hint = edition_id_1,
 				value = edition.id,
 				active = edition.id == current_id,
 			}
@@ -997,7 +1008,7 @@ bind_command('show-in-directory', function()
 
 	if state.platform == 'windows' then
 		utils.subprocess_detached({args = {'explorer', '/select,', state.path}, cancellable = false})
-	elseif state.platform == 'macos' then
+	elseif state.platform == 'darwin' then
 		utils.subprocess_detached({args = {'open', '-R', state.path}, cancellable = false})
 	elseif state.platform == 'linux' then
 		local result = utils.subprocess({args = {'nautilus', state.path}, cancellable = false})
@@ -1019,7 +1030,7 @@ bind_command('stream-quality', function()
 		items[#items + 1] = {title = height .. 'p', value = format, active = format == ytdl_format}
 	end
 
-	Menu:open({type = 'stream-quality', title = 'Stream quality', items = items}, function(format)
+	Menu:open({type = 'stream-quality', title = t('Stream quality'), items = items}, function(format)
 		mp.set_property('ytdl-format', format)
 
 		-- Reload the video to apply new format
@@ -1149,7 +1160,7 @@ bind_command('delete-file-quit', function()
 	mp.command('quit')
 end)
 bind_command('audio-device', create_self_updating_menu_opener({
-	title = 'Audio devices',
+	title = t('Audio devices'),
 	type = 'audio-device-list',
 	list_prop = 'audio-device-list',
 	active_prop = 'audio-device',
@@ -1162,7 +1173,7 @@ bind_command('audio-device', create_self_updating_menu_opener({
 				local hint = string.match(device.name, ao .. '/(.+)')
 				if not hint then hint = device.name end
 				items[#items + 1] = {
-					title = device.description,
+					title = device.description:sub(1, 7) == 'Default' and t('Default %s', device.description:sub(9)) or t(device.description),
 					hint = hint,
 					active = device.name == current_device,
 					value = device.name,
@@ -1182,7 +1193,7 @@ bind_command('open-config-directory', function()
 
 		if state.platform == 'windows' then
 			args = {'explorer', '/select,', config.path}
-		elseif state.platform == 'macos' then
+		elseif state.platform == 'darwin' then
 			args = {'open', '-R', config.path}
 		elseif state.platform == 'linux' then
 			args = {'xdg-open', config.dirname}
@@ -1244,6 +1255,7 @@ mp.register_script_message('set-min-visibility', function(visibility, elements)
 end)
 mp.register_script_message('flash-elements', function(elements) Elements:flash(split(elements, ' *, *')) end)
 mp.register_script_message('overwrite-binding', function(name, command) key_binding_overwrites[name] = command end)
+mp.register_script_message('add-intl-directory', function(path) intl.add_directory(path) end)
 
 --[[ ELEMENTS ]]
 

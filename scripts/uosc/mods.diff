@@ -1,5 +1,5 @@
 diff --git a/scripts/uosc.lua b/scripts/uosc.lua
-index 6acee8e..cd75e0c 100644
+index 84ca8a2..04cc452 100644
 --- a/scripts/uosc.lua
 +++ b/scripts/uosc.lua
 @@ -10,7 +10,7 @@ INFINITY = 1e309
@@ -11,14 +11,14 @@ index 6acee8e..cd75e0c 100644
  
  require('uosc_shared/lib/std')
  
-@@ -613,7 +613,6 @@ mp.observe_property('mouse-pos', 'native', update_mouse_pos)
+@@ -660,7 +660,6 @@ mp.observe_property('mouse-pos', 'native', handle_mouse_pos)
  mp.observe_property('osc', 'bool', function(name, value) if value == true then mp.set_property('osc', 'no') end end)
  mp.register_event('file-loaded', function()
  	set_state('path', normalize_path(mp.get_property_native('path')))
 -	Elements:flash({'top_bar'})
  end)
  mp.register_event('end-file', function(event)
- 	if event.reason == 'eof' then
+ 	set_state('path', nil)
 diff --git a/scripts/uosc_shared/elements/BufferingIndicator.lua b/scripts/uosc_shared/elements/BufferingIndicator.lua
 index e2aa071..c1397e4 100644
 --- a/scripts/uosc_shared/elements/BufferingIndicator.lua
@@ -45,10 +45,10 @@ index 82a7e43..f900bc9 100644
  
  	if self.paused then
 diff --git a/scripts/uosc_shared/elements/Timeline.lua b/scripts/uosc_shared/elements/Timeline.lua
-index a0ab97f..6f7e537 100644
+index 8dfda9f..6831cc3 100644
 --- a/scripts/uosc_shared/elements/Timeline.lua
 +++ b/scripts/uosc_shared/elements/Timeline.lua
-@@ -85,6 +85,16 @@ function Timeline:get_time_at_x(x)
+@@ -89,6 +89,16 @@ function Timeline:get_time_at_x(x)
  	return state.duration * progress
  end
  
@@ -65,16 +65,16 @@ index a0ab97f..6f7e537 100644
  ---@param fast? boolean
  function Timeline:set_from_cursor(fast)
  	if state.time and state.duration then
-@@ -105,6 +115,8 @@ function Timeline:on_prop_time() self:decide_enabled() end
+@@ -112,6 +122,8 @@ function Timeline:on_prop_time() self:decide_enabled() end
  function Timeline:on_prop_border() self:update_dimensions() end
  function Timeline:on_prop_fullormaxed() self:update_dimensions() end
  function Timeline:on_display() self:update_dimensions() end
 +function Timeline:on_mouse_enter() show_clock(true) end
 +function Timeline:on_mouse_leave() show_clock(false) end
  function Timeline:handle_cursor_up()
+ 	self.seek_timer:kill()
  	if self.pressed then
- 		mp.set_property_native('pause', self.pressed.pause)
-@@ -201,7 +213,7 @@ function Timeline:render()
+@@ -210,7 +222,7 @@ function Timeline:render()
  	ass:new_event()
  	ass:pos(0, 0)
  	ass:append('{\\rDefault\\an7\\blur0\\bord0\\1c&H' .. bg .. '}')
@@ -84,10 +84,10 @@ index a0ab97f..6f7e537 100644
  	ass:rect_cw(bax, bay, fax, bby) --left of progress
  	ass:rect_cw(fbx, bay, bbx, bby) --right of progress
 diff --git a/scripts/uosc_shared/elements/TopBar.lua b/scripts/uosc_shared/elements/TopBar.lua
-index 972f103..ea17597 100644
+index 4effc19..1dadea1 100644
 --- a/scripts/uosc_shared/elements/TopBar.lua
 +++ b/scripts/uosc_shared/elements/TopBar.lua
-@@ -63,7 +63,7 @@ function TopBar:init()
+@@ -61,7 +61,7 @@ function TopBar:init()
  
  	-- Order aligns from right to left
  	self.buttons = {
@@ -96,7 +96,7 @@ index 972f103..ea17597 100644
  		TopBarButton:new('tb_max', {icon = 'crop_square', background = '222222', command = get_maximized_command}),
  		TopBarButton:new('tb_min', {icon = 'minimize', background = '222222', command = 'cycle window-minimized'}),
  	}
-@@ -113,7 +113,7 @@ function TopBar:update_dimensions()
+@@ -115,7 +115,7 @@ function TopBar:update_dimensions()
  	self.size = state.fullormaxed and options.top_bar_size_fullscreen or options.top_bar_size
  	self.icon_size = round(self.size * 0.5)
  	self.spacing = math.ceil(self.size * 0.25)
@@ -105,7 +105,7 @@ index 972f103..ea17597 100644
  	self.button_width = round(self.size * 1.15)
  	self.ay = Elements.window_border.size
  	self.bx = display.width - Elements.window_border.size
-@@ -170,13 +170,13 @@ function TopBar:render()
+@@ -172,13 +172,13 @@ function TopBar:render()
  		-- Playlist position
  		if state.has_playlist then
  			local text = state.playlist_pos .. '' .. state.playlist_count
@@ -123,7 +123,7 @@ index 972f103..ea17597 100644
  			local rect = {ax = self.ax, ay = self.ay, bx = bx, by = self.by}
  
  			if get_point_to_rectangle_proximity(cursor, rect) == 0 then
-@@ -193,7 +193,7 @@ function TopBar:render()
+@@ -195,7 +195,7 @@ function TopBar:render()
  					size = self.font_size, wrap = 2, color = bgt, border = 1, border_color = bg, opacity = visibility,
  					clip = string.format('\\clip(%d, %d, %d, %d)', self.ax, self.ay, max_bx, self.by),
  				}
@@ -132,7 +132,7 @@ index 972f103..ea17597 100644
  				local by = self.by - bg_margin
  				local rect = {ax = title_ax, ay = self.ay, bx = self.title_bx, by = self.by}
  
-@@ -204,7 +204,7 @@ function TopBar:render()
+@@ -206,7 +206,7 @@ function TopBar:render()
  				ass:rect(title_ax, title_ay, bx, by, {
  					color = bg, opacity = visibility * options.top_bar_title_opacity, radius = 2,
  				})
@@ -142,7 +142,7 @@ index 972f103..ea17597 100644
  			end
  
 diff --git a/scripts/uosc_shared/lib/menus.lua b/scripts/uosc_shared/lib/menus.lua
-index 5b7b790..8c9d79e 100644
+index 44be3c3..dc97b9d 100644
 --- a/scripts/uosc_shared/lib/menus.lua
 +++ b/scripts/uosc_shared/lib/menus.lua
 @@ -84,6 +84,7 @@ function create_select_tracklist_type_menu_opener(menu_title, track_type, track_
@@ -155,7 +155,7 @@ index 5b7b790..8c9d79e 100644
  		-- but why would anyone want to disable audio or video? Better to not
 @@ -93,6 +94,7 @@ function create_select_tracklist_type_menu_opener(menu_title, track_type, track_
  		if track_type == 'sub' then
- 			disabled_item = {title = 'Disabled', italic = true, muted = true, hint = '—', value = nil, active = true}
+ 			disabled_item = {title = t('Disabled'), italic = true, muted = true, hint = '—', value = nil, active = true}
  			items[#items + 1] = disabled_item
 +			secondary_sid = mp.get_property_native("secondary-sid", nil)
  		end
@@ -164,17 +164,17 @@ index 5b7b790..8c9d79e 100644
 @@ -114,7 +116,7 @@ function create_select_tracklist_type_menu_opener(menu_title, track_type, track_
  
  				items[#items + 1] = {
- 					title = (track.title and track.title or 'Track ' .. track.id),
+ 					title = (track.title and track.title or t('Track %s', track.id)),
 -					hint = table.concat(hint_values, ', '),
 +					hint = (table.concat(hint_values, ', ')) .. ((track.selected and track.id == secondary_sid) and '²' or ''),
  					value = track.id,
  					active = track.selected,
  				}
 diff --git a/scripts/uosc_shared/lib/utils.lua b/scripts/uosc_shared/lib/utils.lua
-index 9732afb..3005126 100644
+index f64485c..06deda4 100644
 --- a/scripts/uosc_shared/lib/utils.lua
 +++ b/scripts/uosc_shared/lib/utils.lua
-@@ -134,6 +134,13 @@ function ass_escape(str)
+@@ -141,6 +141,13 @@ function ass_escape(str)
  	return str
  end
  
@@ -188,7 +188,7 @@ index 9732afb..3005126 100644
  ---@param seconds number
  ---@param max_seconds number|nil Trims unnecessary `00:` if time is not expected to reach it.
  ---@return string
-@@ -373,6 +380,7 @@ function navigate_directory(delta)
+@@ -380,6 +387,7 @@ function navigate_directory(delta)
  	local paths, current_index = get_adjacent_files(state.path, config.types.autoload)
  	if paths and current_index then
  		local _, path = decide_navigation_in_list(paths, current_index, delta)
@@ -196,7 +196,7 @@ index 9732afb..3005126 100644
  		if path then mp.commandv('loadfile', path) return true end
  	end
  	return false
-@@ -383,6 +391,7 @@ function navigate_playlist(delta)
+@@ -390,6 +398,7 @@ function navigate_playlist(delta)
  	local playlist, pos = mp.get_property_native('playlist'), mp.get_property_native('playlist-pos-1')
  	if playlist and #playlist > 1 and pos then
  		local index = decide_navigation_in_list(playlist, pos, delta)
