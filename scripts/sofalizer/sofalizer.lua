@@ -37,7 +37,7 @@ local sofa_file = "sofa/ClubFritz6.sofa"
 
 ---------------------------------------------------------------------------------------------
 ---------------------------------------------------------------------------------------------
-local af_add = "sofalizer=sofa=\"" .. mp.get_script_directory() .. "/" .. sofa_file .. "\":gain=" .. sofa_gain
+local af_add = "asoftclip,sofalizer=sofa=\"" .. mp.get_script_directory() .. "/" .. sofa_file .. "\":gain=" .. sofa_gain
 if (sofa_opts ~= "") then
     af_add = af_add .. ":" .. sofa_opts
 end
@@ -63,16 +63,18 @@ local function main(name, channels)
 end
 
 -- This is here so both changing files and changing audio id (if channel count changes) should retrigger main.
-local function file_ended()
-    mp.unregister_event(file_ended)
-    mp.unobserve_property(main)
-    mp.register_event("file-loaded", file_loaded)
-end
+local file_ended
 
 local function file_loaded()
     mp.unregister_event(file_loaded)
     mp.register_event("end-file", file_ended)
     mp.observe_property("audio-params/channel-count", "number", main)
+end
+
+file_ended = function()
+    mp.unregister_event(file_ended)
+    mp.unobserve_property(main)
+    mp.register_event("file-loaded", file_loaded)
 end
 
 mp.register_event("file-loaded", file_loaded)
