@@ -1,5 +1,5 @@
 diff --git a/scripts/uosc.lua b/scripts/uosc.lua
-index 84ca8a2..04cc452 100644
+index 84ca8a2..9bac5a7 100644
 --- a/scripts/uosc.lua
 +++ b/scripts/uosc.lua
 @@ -10,7 +10,7 @@ INFINITY = 1e309
@@ -11,7 +11,19 @@ index 84ca8a2..04cc452 100644
  
  require('uosc_shared/lib/std')
  
-@@ -660,7 +660,6 @@ mp.observe_property('mouse-pos', 'native', handle_mouse_pos)
+@@ -227,7 +227,10 @@ config = {
+ 				local title_parts = split(title or '', ' *> *')
+ 
+ 				for index, title_part in ipairs(#title_parts > 0 and title_parts or {''}) do
+-					title_part = t(title_part)
++					local title_part_ok, title_part_t = pcall(t, title_part)
++					if title_part_ok then
++						title_part = title_part_t
++					end
+ 					if index < #title_parts then
+ 						submenu_id = submenu_id .. title_part
+ 
+@@ -660,7 +663,6 @@ mp.observe_property('mouse-pos', 'native', handle_mouse_pos)
  mp.observe_property('osc', 'bool', function(name, value) if value == true then mp.set_property('osc', 'no') end end)
  mp.register_event('file-loaded', function()
  	set_state('path', normalize_path(mp.get_property_native('path')))
@@ -45,7 +57,7 @@ index 82a7e43..f900bc9 100644
  
  	if self.paused then
 diff --git a/scripts/uosc_shared/elements/Timeline.lua b/scripts/uosc_shared/elements/Timeline.lua
-index 8dfda9f..6831cc3 100644
+index 722778f..bd64ca7 100644
 --- a/scripts/uosc_shared/elements/Timeline.lua
 +++ b/scripts/uosc_shared/elements/Timeline.lua
 @@ -89,6 +89,16 @@ function Timeline:get_time_at_x(x)
@@ -171,7 +183,7 @@ index 44be3c3..dc97b9d 100644
  					active = track.selected,
  				}
 diff --git a/scripts/uosc_shared/lib/utils.lua b/scripts/uosc_shared/lib/utils.lua
-index f64485c..06deda4 100644
+index aaa3d8a..2bb2876 100644
 --- a/scripts/uosc_shared/lib/utils.lua
 +++ b/scripts/uosc_shared/lib/utils.lua
 @@ -141,6 +141,13 @@ function ass_escape(str)

@@ -9,36 +9,44 @@ High-performance on-the-fly thumbnailer for mpv.
 Place thumbfast.lua in your mpv `scripts` folder.  
 Default settings are listed in thumbfast.conf, copy it to your mpv `script-opts` folder to customize.
 
-For the vanilla UI, you have to install [osc.lua](https://github.com/po5/thumbfast/blob/vanilla-osc/player/lua/osc.lua) (which is identical to the vanilla UI) and add `osc=no` in your `mpv.conf`.
-
-## UI support
-- [uosc](https://github.com/tomasklaen/uosc)
-- [osc.lua](https://github.com/po5/thumbfast/blob/vanilla-osc/player/lua/osc.lua) (use this fork for vanilla UI)
-- [progressbar](https://github.com/torque/mpv-progressbar)
-- [tethys](https://github.com/Zren/mpv-osc-tethys) (PR pending, [lua](https://github.com/Zren/mpv-osc-tethys/blob/a6a3f4295e9a68dbb0763f30cb2d9f73b2452445/osc_tethys.lua))
-- [modern](https://github.com/maoiscat/mpv-osc-modern/tree/with.thumbfast) (separate branch)
-- [MordenX](https://github.com/cyl0/MordenX)
-- [oscc](https://github.com/longtermfree/oscc)
-- [mfpbar](https://codeberg.org/NRK/mpv-toolbox/src/branch/master/mfpbar)
+For the vanilla UI, you also have to install [osc.lua](https://github.com/po5/thumbfast/blob/vanilla-osc/player/lua/osc.lua) (identical to the mpv default, with added thumbfast support) into your `scripts` folder.  
+For third-party UIs, refer to their respective installation instructions. [See the list of supported UIs.](#ui-support)
 
 ## Features
 No dependencies, no background thumbnail generation hogging your CPU.  
 Customizable sizes, interval between thumbnails, cropping support, respects applied video filters.  
 Supports web videos e.g. YouTube (disabled by default), mixed aspect ratio videos.
 
-## Requirements
-Windows: None, works out of the box
-
-Linux: None, works out of the box
-
-Mac: None, works out of the box
-
-This script makes an effort to run on mpv versions as old as 0.29.0.  
-Note that most custom UIs will not support vintage mpv builds, consider updating if you're having issues.
+This script makes an effort to run on mpv versions as old as 0.29.0 (Windows, Linux) and 0.33.0 (Mac).  
+Note that most custom UIs will not support vintage mpv builds, update before submitting an issue and mention if behavior is the same.  
+Support for <0.33.0 on Linux requires socat.
 
 ## Usage
 Once the lua file is in your scripts directory, and you are using a UI that supports thumbfast, you are done.  
 Hover on the timeline for nice thumbnails.
+
+## UI support
+- [uosc](https://github.com/tomasklaen/uosc)
+- [osc.lua](https://github.com/po5/thumbfast/blob/vanilla-osc/player/lua/osc.lua) (use this fork for vanilla UI)
+- [progressbar](https://github.com/torque/mpv-progressbar)
+- [tethys](https://github.com/Zren/mpv-osc-tethys) (PR pending, [lua](https://github.com/po5/mpv-osc-tethys/blob/thumbfast/osc_tethys.lua))
+- [modern](https://github.com/maoiscat/mpv-osc-modern/tree/with.thumbfast) (separate branch)
+- [ModernX](https://github.com/cyl0/ModernX)
+- [oscc](https://github.com/longtermfree/oscc)
+- [mfpbar](https://codeberg.org/NRK/mpv-toolbox/src/branch/master/mfpbar)
+
+## mpv frontends
+If you are using a GUI frontend such as [mpv.net](https://github.com/mpvnet-player/mpv.net), you will need [standalone mpv](https://mpv.io/installation/) accessible within [Path](https://learn.microsoft.com/en-us/previous-versions/office/developer/sharepoint-2010/ee537574(v=office.14)#to-add-a-path-to-the-path-environment-variable).  
+The easiest way is to copy standalone mpv files inside of your mpv.net installation folder.  
+It will be used in the background to generate thumbnails.
+
+The only exception is [ImPlay](https://tsl0922.github.io/ImPlay/), which can do thumbnailing on its own.  
+Set `mpv_path=ImPlay` in `script-opts/thumbfast.conf`.
+
+## MacOS
+If your mpv install is an app bundle (e.g. stolendata builds), the script will work but you may notice the Dock shakes when generating the first thumbnail.  
+To get rid of the shaking, make sure the app is in your Applications folder, then run: `sudo ln -s /Applications/mpv.app/Contents/MacOS/mpv /usr/local/mpv`  
+If you installed mpv via [Homebrew](https://brew.sh/), there are no issues.
 
 ## Configuration
 `socket`: On Windows, a plain string. On Linux and Mac, a directory path for temporary files. Leave empty for auto.  
@@ -49,7 +57,8 @@ Hover on the timeline for nice thumbnails.
 `network`: Enable on remote files. Defaults to no.  
 `audio`: Enable on audio files. Defaults to no.  
 `hwdec`: Enable hardware decoding. Defaults to no.  
-`direct_io`: Windows only: write directly to pipe (requires LuaJIT). Should improve performance, ymmv.
+`direct_io`: Windows only: write directly to pipe (requires LuaJIT). Should improve performance, ymmv.  
+`mpv_path`: Custom path to the mpv executable. Defaults to mpv.
 
 ## For UI developers: How to add thumbfast support to your script
 Declare the thumbfast state variable near the top of your script.  

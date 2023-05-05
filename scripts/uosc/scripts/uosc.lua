@@ -227,6 +227,10 @@ config = {
 				local title_parts = split(title or '', ' *> *')
 
 				for index, title_part in ipairs(#title_parts > 0 and title_parts or {''}) do
+					local title_part_ok, title_part_t = pcall(t, title_part)
+					if title_part_ok then
+						title_part = title_part_t
+					end
 					if index < #title_parts then
 						submenu_id = submenu_id .. title_part
 
