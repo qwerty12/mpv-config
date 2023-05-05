@@ -37,18 +37,18 @@ local sofa_file = "sofa/ClubFritz6.sofa"
 
 ---------------------------------------------------------------------------------------------
 ---------------------------------------------------------------------------------------------
-local af_add = "asoftclip,sofalizer=sofa=\"" .. mp.get_script_directory() .. "/" .. sofa_file .. "\":gain=" .. sofa_gain
+local af_add = "sofalizer=sofa=\"" .. mp.get_script_directory() .. "/" .. sofa_file .. "\":gain=" .. sofa_gain
 if (sofa_opts ~= "") then
     af_add = af_add .. ":" .. sofa_opts
 end
 
 local function main(name, channels)
-    if (channels == nil or channels < sofa_min_channels or channels > sofa_max_channels) then
-        mp.command("no-osd af remove '" .. af_add .. "'")
-        return
-    end
     local af = mp.get_property("af")
     if (string.find(af, "sofalizer")) then
+        if (channels == nil or channels < sofa_min_channels or channels > sofa_max_channels) then
+            mp.command("no-osd af remove '" .. af_add .. "'")
+            mp.command("no-osd af remove asoftclip")
+        end
         return
     end
     if false then
@@ -59,6 +59,7 @@ local function main(name, channels)
         print("New     --af=" .. af .. ";" .. af_add)
     end
     end
+    mp.command("no-osd af add asoftclip")
     mp.command("no-osd af add '" .. af_add .. "'")
 end
 
