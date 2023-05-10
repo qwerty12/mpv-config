@@ -1,5 +1,6 @@
 local sub_menu_threshold = 10
 local cycle_sub = true
+local secondary_sub_profile_applied = false
 
 local ffi = require("ffi")
 ffi.cdef [[
@@ -24,27 +25,46 @@ mp.register_event("file-loaded", update_track_count)
 mp.add_forced_key_binding("s", "subsel", function() mp.command(cycle_sub and "cycle sub" or "script-binding uosc/subtitles") end)
 
 local function select_sdh_if_no_ext_sub()
+    if secondary_sub_profile_applied then
+        secondary_sub_profile_applied = false
+        mp.command("no-osd apply-profile secondary-subs restore")
+    end
     if loadfile(mp.get_script_directory() .. "/../jellyfin_shimc/jellyfin_shimc.lua")().is_jellyfin_env then
         mp.set_property("sid", "auto") -- work-around Jellyfin's bad automatic subtitle lang selection
         ffi.C.Sleep(100)
     end
-    local current_sid = mp.get_property_number("sid", -1)
     local new_sid = -1
     local first_sid = -1
+    local del, gle = -1, -1
+
+    local current_sid = mp.get_property_number("sid", -1)
     local all_tracks = mp.get_property_native("track-list", {})
     for i = 1, #all_tracks do
         local track = all_tracks[i]
         if track.type == "sub" then
-            if track.external and track.id == current_sid then
-                return
-            end
+            --mp.msg.error(require("mp.utils").format_json(track))
 
-            if ((track.lang and track.lang:find("^eng?") ~= nil)) and ((track["hearing-impaired"]) or (track.title and track.title:find("SDH") ~= nil)) then
+            local lang = track.lang
+            if ((lang and lang:find("^eng?") ~= nil)) and ((track["hearing-impaired"]) or (track.title and track.title:find("SDH") ~= nil)) then
                 new_sid = track.id
+            elseif lang == "del" then
+                del = track.id
+            elseif lang == "gle" then
+                gle = track.id
             elseif first_sid == -1 then
                 first_sid = track.id
             end
         end
+    end
+
+    if gle ~= -1 and del ~= -1 then
+        if del ~= current_sid then
+            mp.set_property_number("sid", del)
+        end
+        mp.set_property_number("secondary-sid", gle)
+        secondary_sub_profile_applied = true
+        mp.command("no-osd apply-profile secondary-subs")
+        return
     end
 
     if current_sid == -1 and new_sid == -1 and first_sid ~= -1 and all_tracks[first_sid]["lang"] == nil then
