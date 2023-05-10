@@ -42,25 +42,20 @@ if (sofa_opts ~= "") then
     af_add = af_add .. ":" .. sofa_opts
 end
 
-local function main(name, channels)
-    local af = mp.get_property("af")
-    if (string.find(af, "sofalizer")) then
-        if (channels == nil or channels < sofa_min_channels or channels > sofa_max_channels) then
+local function main(_, channels)
+    local found_sofa = string.find(mp.get_property("af"), "sofalizer")
+    if (channels == nil or channels < sofa_min_channels or channels > sofa_max_channels) then
+        if found_sofa then
             mp.command("no-osd af remove '" .. af_add .. "'")
             mp.command("no-osd af remove asoftclip")
         end
         return
     end
-    if false then
-    print("Current --af=" .. af)
-    if (af == "") then
-        print("New     --af=" .. af_add)
-    else
-        print("New     --af=" .. af .. ";" .. af_add)
+
+    if not found_sofa then
+        mp.command("no-osd af add asoftclip")
+        mp.command("no-osd af add '" .. af_add .. "'")
     end
-    end
-    mp.command("no-osd af add asoftclip")
-    mp.command("no-osd af add '" .. af_add .. "'")
 end
 
 -- This is here so both changing files and changing audio id (if channel count changes) should retrigger main.
