@@ -31,7 +31,8 @@ local function select_sdh_if_no_ext_sub()
     end
     if loadfile(mp.get_script_directory() .. "/../jellyfin_shimc/jellyfin_shimc.lua")().is_jellyfin_env then
         mp.set_property("sid", "auto") -- work-around Jellyfin's bad automatic subtitle lang selection
-        ffi.C.Sleep(100)
+        ffi.C.Sleep(150)
+        mp.dispatch_events(false)
     end
     local new_sid = -1
     local first_sid = -1
@@ -47,9 +48,9 @@ local function select_sdh_if_no_ext_sub()
             local lang = track.lang
             if ((lang and lang:find("^eng?") ~= nil)) and ((track["hearing-impaired"]) or (track.title and track.title:find("SDH") ~= nil)) then
                 new_sid = track.id
-            elseif lang == "del" then
+            elseif track.external and lang == "del" then
                 del = track.id
-            elseif lang == "gle" then
+            elseif track.external and lang == "gle" then
                 gle = track.id
             elseif first_sid == -1 then
                 first_sid = track.id
