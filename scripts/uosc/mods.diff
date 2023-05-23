@@ -1,5 +1,5 @@
 diff --git a/scripts/uosc.lua b/scripts/uosc.lua
-index 84ca8a2..9bac5a7 100644
+index 39f20ec..5ef7b8f 100644
 --- a/scripts/uosc.lua
 +++ b/scripts/uosc.lua
 @@ -10,7 +10,7 @@ INFINITY = 1e309
@@ -11,19 +11,7 @@ index 84ca8a2..9bac5a7 100644
  
  require('uosc_shared/lib/std')
  
-@@ -227,7 +227,10 @@ config = {
- 				local title_parts = split(title or '', ' *> *')
- 
- 				for index, title_part in ipairs(#title_parts > 0 and title_parts or {''}) do
--					title_part = t(title_part)
-+					local title_part_ok, title_part_t = pcall(t, title_part)
-+					if title_part_ok then
-+						title_part = title_part_t
-+					end
- 					if index < #title_parts then
- 						submenu_id = submenu_id .. title_part
- 
-@@ -660,7 +663,6 @@ mp.observe_property('mouse-pos', 'native', handle_mouse_pos)
+@@ -681,7 +681,6 @@ mp.observe_property('mouse-pos', 'native', handle_mouse_pos)
  mp.observe_property('osc', 'bool', function(name, value) if value == true then mp.set_property('osc', 'no') end end)
  mp.register_event('file-loaded', function()
  	set_state('path', normalize_path(mp.get_property_native('path')))
@@ -57,7 +45,7 @@ index 82a7e43..f900bc9 100644
  
  	if self.paused then
 diff --git a/scripts/uosc_shared/elements/Timeline.lua b/scripts/uosc_shared/elements/Timeline.lua
-index 722778f..bd64ca7 100644
+index 158267d..d37762d 100644
 --- a/scripts/uosc_shared/elements/Timeline.lua
 +++ b/scripts/uosc_shared/elements/Timeline.lua
 @@ -89,6 +89,16 @@ function Timeline:get_time_at_x(x)
@@ -96,7 +84,7 @@ index 722778f..bd64ca7 100644
  	ass:rect_cw(bax, bay, fax, bby) --left of progress
  	ass:rect_cw(fbx, bay, bbx, bby) --right of progress
 diff --git a/scripts/uosc_shared/elements/TopBar.lua b/scripts/uosc_shared/elements/TopBar.lua
-index 4effc19..1dadea1 100644
+index 0bb3e64..92a8b54 100644
 --- a/scripts/uosc_shared/elements/TopBar.lua
 +++ b/scripts/uosc_shared/elements/TopBar.lua
 @@ -61,7 +61,7 @@ function TopBar:init()
@@ -142,10 +130,10 @@ index 4effc19..1dadea1 100644
 -				local bx = math.min(max_bx, title_ax + text_width(main_title, opts) + padding * 2)
 +				local bx = math.min(max_bx, title_ax + text_width(main_title, opts) + padding)
  				local by = self.by - bg_margin
- 				local rect = {ax = title_ax, ay = self.ay, bx = self.title_bx, by = self.by}
+ 				local title_rect = {ax = title_ax, ay = title_ay, bx = bx, by = by}
  
-@@ -206,7 +206,7 @@ function TopBar:render()
- 				ass:rect(title_ax, title_ay, bx, by, {
+@@ -208,7 +208,7 @@ function TopBar:render()
+ 				ass:rect(title_rect.ax, title_rect.ay, title_rect.bx, title_rect.by, {
  					color = bg, opacity = visibility * options.top_bar_title_opacity, radius = 2,
  				})
 -				ass:txt(title_ax + padding, self.ay + (self.size / 2), 4, main_title, opts)
@@ -183,10 +171,10 @@ index 44be3c3..dc97b9d 100644
  					active = track.selected,
  				}
 diff --git a/scripts/uosc_shared/lib/utils.lua b/scripts/uosc_shared/lib/utils.lua
-index aaa3d8a..2bb2876 100644
+index f112f68..ffbbe4b 100644
 --- a/scripts/uosc_shared/lib/utils.lua
 +++ b/scripts/uosc_shared/lib/utils.lua
-@@ -141,6 +141,13 @@ function ass_escape(str)
+@@ -208,6 +208,13 @@ function ass_escape(str)
  	return str
  end
  
@@ -200,7 +188,7 @@ index aaa3d8a..2bb2876 100644
  ---@param seconds number
  ---@param max_seconds number|nil Trims unnecessary `00:` if time is not expected to reach it.
  ---@return string
-@@ -380,6 +387,7 @@ function navigate_directory(delta)
+@@ -447,6 +454,7 @@ function navigate_directory(delta)
  	local paths, current_index = get_adjacent_files(state.path, config.types.autoload)
  	if paths and current_index then
  		local _, path = decide_navigation_in_list(paths, current_index, delta)
@@ -208,7 +196,7 @@ index aaa3d8a..2bb2876 100644
  		if path then mp.commandv('loadfile', path) return true end
  	end
  	return false
-@@ -390,6 +398,7 @@ function navigate_playlist(delta)
+@@ -457,6 +465,7 @@ function navigate_playlist(delta)
  	local playlist, pos = mp.get_property_native('playlist'), mp.get_property_native('playlist-pos-1')
  	if playlist and #playlist > 1 and pos then
  		local index = decide_navigation_in_list(playlist, pos, delta)

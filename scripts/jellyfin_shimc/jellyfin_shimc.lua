@@ -175,10 +175,10 @@ local function main()
     end
 
     mp.set_property("keep-open", "no")
-    mp.add_forced_key_binding("LEFT", nil, function() mp.command("script-message custom-bind bind15 ; osd-msg show-progress ; script-binding uosc/flash-timeline") end, {repeatable = true})
+    mp.add_forced_key_binding("LEFT", nil,  function() mp.command("script-message custom-bind bind15 ; osd-msg show-progress ; script-binding uosc/flash-timeline") end, {repeatable = true})
     mp.add_forced_key_binding("RIGHT", nil, function() mp.command("script-message custom-bind bind16 ; osd-msg show-progress ; script-binding uosc/flash-timeline") end, {repeatable = true})
-    mp.add_forced_key_binding("DOWN", nil, function() mp.command("script-message custom-bind bind18 ; osd-msg show-progress ; script-binding uosc/flash-timeline") end, {repeatable = true})
-    mp.add_forced_key_binding("UP", nil, function() mp.command("script-message custom-bind bind17 ; osd-msg show-progress ; script-binding uosc/flash-timeline") end, {repeatable = true})
+    mp.add_forced_key_binding("UP", nil,    function() mp.command("script-message custom-bind bind17 ; osd-msg show-progress ; script-binding uosc/flash-timeline") end, {repeatable = true})
+    mp.add_forced_key_binding("DOWN", nil,  function() mp.command("script-message custom-bind bind18 ; osd-msg show-progress ; script-binding uosc/flash-timeline") end, {repeatable = true})
     local window_shit = init_window_shit()
     local resume_enable_timer = mp.add_timeout(5, function() mp.set_property_bool("resume-playback", true) end)
     resume_enable_timer:kill()

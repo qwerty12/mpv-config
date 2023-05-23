@@ -428,6 +428,8 @@ Command {
   value: string | string[];
   bold?: boolean;
   italic?: boolean;
+  align?: 'left'|'center'|'right';
+  selectable?: boolean;
   muted?: boolean;
   active?: integer;
   keep_open?: boolean;
@@ -587,14 +589,6 @@ mp.commandv('script-message-to', 'uosc', 'overwrite-binding', 'stream-quality', 
 ```
 
 To cancel the overwrite and return to default behavior, just omit the `<command>` parameter.
-
-### `add-intl-directory <path>`
-
-Adds a new internationalization directory where uosc will look for localization files to be merged into current locale.
-
-See `scripts/uosc_shared/intl` for directory structure example.
-
-Example path: `~~/scripts/my_script/intl`
 
 ## Why _uosc_?
 

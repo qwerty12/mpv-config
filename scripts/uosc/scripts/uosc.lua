@@ -227,10 +227,6 @@ config = {
 				local title_parts = split(title or '', ' *> *')
 
 				for index, title_part in ipairs(#title_parts > 0 and title_parts or {''}) do
-					local title_part_ok, title_part_t = pcall(t, title_part)
-					if title_part_ok then
-						title_part = title_part_t
-					end
 					if index < #title_parts then
 						submenu_id = submenu_id .. title_part
 
@@ -322,10 +318,14 @@ cursor = {
 	on_primary_up = nil,
 	on_wheel_down = nil,
 	on_wheel_up = nil,
+	allow_dragging = false,
+	history = {}, -- {x, y}[] history
+	history_size = 10,
 	-- Called at the beginning of each render
 	reset_handlers = function()
 		cursor.on_primary_down, cursor.on_primary_up = nil, nil
 		cursor.on_wheel_down, cursor.on_wheel_up = nil, nil
+		cursor.allow_dragging = false
 	end,
 	-- Enables pointer key group captures needed by handlers (called at the end of each render)
 	mbtn_left_enabled = nil,
@@ -334,7 +334,8 @@ cursor = {
 		local enable_mbtn_left = (cursor.on_primary_down or cursor.on_primary_up) ~= nil
 		local enable_wheel = (cursor.on_wheel_down or cursor.on_wheel_up) ~= nil
 		if enable_mbtn_left ~= cursor.mbtn_left_enabled then
-			mp[(enable_mbtn_left and 'enable' or 'disable') .. '_key_bindings']('mbtn_left')
+			local flags = cursor.allow_dragging and 'allow-vo-dragging' or nil
+			mp[(enable_mbtn_left and 'enable' or 'disable') .. '_key_bindings']('mbtn_left', flags)
 			cursor.mbtn_left_enabled = enable_mbtn_left
 		end
 		if enable_wheel ~= cursor.wheel_enabled then
@@ -356,6 +357,17 @@ cursor = {
 			cursor.autohide_timer:kill()
 			cursor.autohide_timer:resume()
 		end
+	end,
+	-- Calculates distance in which cursor reaches rectangle if it continues moving in the same path.
+	-- Returns `nil` if cursor is not moving towards the rectangle.
+	direction_to_rectangle_distance = function(rect)
+		if cursor.hidden or not cursor.history[1] then
+			return false
+		end
+
+		local prev_x, prev_y = cursor.history[1][1], cursor.history[1][2]
+		local end_x, end_y = cursor.x + (cursor.x - prev_x) * 1e10, cursor.y + (cursor.y - prev_y) * 1e10
+		return get_ray_to_rectangle_distance(cursor.x, cursor.y, end_x, end_y, rect)
 	end
 }
 state = {
@@ -542,18 +554,24 @@ function update_cursor_position(x, y)
 		else x, y = INFINITY, INFINITY end
 	end
 
-	-- add 0.5 to be in the middle of the pixel
+	-- Add 0.5 to be in the middle of the pixel
 	cursor.x, cursor.y = (x + 0.5) / display.scale_x, (y + 0.5) / display.scale_y
 
 	if old_x ~= cursor.x or old_y ~= cursor.y then
 		Elements:update_proximities()
 
 		if cursor.x == INFINITY or cursor.y == INFINITY then
-			cursor.hidden = true
+			cursor.hidden, cursor.history = true, {}
 			Elements:trigger('global_mouse_leave')
 		elseif cursor.hidden then
-			cursor.hidden = false
+			cursor.hidden, cursor.history = false, {}
 			Elements:trigger('global_mouse_enter')
+		else
+			-- Update cursor history
+			for i = 1, cursor.history_size - 1, 1 do
+				cursor.history[i] = cursor.history[i + 1]
+			end
+			cursor.history[cursor.history_size] = {x, y}
 		end
 
 		Elements:proximity_trigger('mouse_move')
@@ -621,7 +639,7 @@ end
 function select_current_chapter()
 	local current_chapter
 	if state.time and state.chapters then
-		_, current_chapter = itable_find(state.chapters, function(c) return state.time >= c.time end, true)
+		_, current_chapter = itable_find(state.chapters, function(c) return state.time >= c.time end, #state.chapters, 1)
 	end
 	set_state('current_chapter', current_chapter)
 end
@@ -1259,7 +1277,6 @@ mp.register_script_message('set-min-visibility', function(visibility, elements)
 end)
 mp.register_script_message('flash-elements', function(elements) Elements:flash(split(elements, ' *, *')) end)
 mp.register_script_message('overwrite-binding', function(name, command) key_binding_overwrites[name] = command end)
-mp.register_script_message('add-intl-directory', function(path) intl.add_directory(path) end)
 
 --[[ ELEMENTS ]]
 
