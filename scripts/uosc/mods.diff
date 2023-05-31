@@ -1,5 +1,5 @@
 diff --git a/scripts/uosc.lua b/scripts/uosc.lua
-index 39f20ec..5ef7b8f 100644
+index 4fa7b80..635523a 100644
 --- a/scripts/uosc.lua
 +++ b/scripts/uosc.lua
 @@ -10,7 +10,7 @@ INFINITY = 1e309
@@ -11,10 +11,10 @@ index 39f20ec..5ef7b8f 100644
  
  require('uosc_shared/lib/std')
  
-@@ -681,7 +681,6 @@ mp.observe_property('mouse-pos', 'native', handle_mouse_pos)
- mp.observe_property('osc', 'bool', function(name, value) if value == true then mp.set_property('osc', 'no') end end)
- mp.register_event('file-loaded', function()
- 	set_state('path', normalize_path(mp.get_property_native('path')))
+@@ -685,7 +685,6 @@ mp.register_event('file-loaded', function()
+ 	itable_delete_value(state.history, path)
+ 	state.history[#state.history + 1] = path
+ 	set_state('path', path)
 -	Elements:flash({'top_bar'})
  end)
  mp.register_event('end-file', function(event)
@@ -171,7 +171,7 @@ index 44be3c3..dc97b9d 100644
  					active = track.selected,
  				}
 diff --git a/scripts/uosc_shared/lib/utils.lua b/scripts/uosc_shared/lib/utils.lua
-index f112f68..ffbbe4b 100644
+index f25c52e..8bc2bf8 100644
 --- a/scripts/uosc_shared/lib/utils.lua
 +++ b/scripts/uosc_shared/lib/utils.lua
 @@ -208,6 +208,13 @@ function ass_escape(str)
@@ -188,7 +188,7 @@ index f112f68..ffbbe4b 100644
  ---@param seconds number
  ---@param max_seconds number|nil Trims unnecessary `00:` if time is not expected to reach it.
  ---@return string
-@@ -447,6 +454,7 @@ function navigate_directory(delta)
+@@ -458,6 +465,7 @@ function navigate_directory(delta)
  	local paths, current_index = get_adjacent_files(state.path, config.types.autoload)
  	if paths and current_index then
  		local _, path = decide_navigation_in_list(paths, current_index, delta)
@@ -196,10 +196,10 @@ index f112f68..ffbbe4b 100644
  		if path then mp.commandv('loadfile', path) return true end
  	end
  	return false
-@@ -457,6 +465,7 @@ function navigate_playlist(delta)
- 	local playlist, pos = mp.get_property_native('playlist'), mp.get_property_native('playlist-pos-1')
+@@ -469,6 +477,7 @@ function navigate_playlist(delta)
  	if playlist and #playlist > 1 and pos then
- 		local index = decide_navigation_in_list(playlist, pos, delta)
+ 		local paths = itable_map(playlist, function(item) return normalize_path(item.filename) end)
+ 		local index = decide_navigation_in_list(paths, pos, delta)
 +		if index then write_watch_later() end
  		if index then mp.commandv('playlist-play-index', index - 1) return true end
  	end
