@@ -224,7 +224,7 @@ function format_time(seconds, max_seconds)
 		local formatted = string.format('%.' .. options.time_precision .. 'f', math.abs(seconds) % 1)
 		human = human .. '.' .. string.sub(formatted, 3)
 	end
-	if max_seconds then
+	if false then
 		local trim_length = (max_seconds < 60 and 7 or (max_seconds < 3600 and 4 or 0))
 		if trim_length > 0 then
 			local has_minus = seconds < 0

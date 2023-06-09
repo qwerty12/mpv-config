@@ -171,7 +171,7 @@ index 44be3c3..dc97b9d 100644
  					active = track.selected,
  				}
 diff --git a/scripts/uosc_shared/lib/utils.lua b/scripts/uosc_shared/lib/utils.lua
-index f25c52e..8bc2bf8 100644
+index f25c52e..a1ee79a 100644
 --- a/scripts/uosc_shared/lib/utils.lua
 +++ b/scripts/uosc_shared/lib/utils.lua
 @@ -208,6 +208,13 @@ function ass_escape(str)
@@ -188,6 +188,15 @@ index f25c52e..8bc2bf8 100644
  ---@param seconds number
  ---@param max_seconds number|nil Trims unnecessary `00:` if time is not expected to reach it.
  ---@return string
+@@ -217,7 +224,7 @@ function format_time(seconds, max_seconds)
+ 		local formatted = string.format('%.' .. options.time_precision .. 'f', math.abs(seconds) % 1)
+ 		human = human .. '.' .. string.sub(formatted, 3)
+ 	end
+-	if max_seconds then
++	if false then
+ 		local trim_length = (max_seconds < 60 and 7 or (max_seconds < 3600 and 4 or 0))
+ 		if trim_length > 0 then
+ 			local has_minus = seconds < 0
 @@ -458,6 +465,7 @@ function navigate_directory(delta)
  	local paths, current_index = get_adjacent_files(state.path, config.types.autoload)
  	if paths and current_index then
