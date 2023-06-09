@@ -40,7 +40,6 @@ local function select_sdh_if_no_ext_sub()
 
     local current_sid = mp.get_property_number("sid", -1)
     local all_tracks = mp.get_property_native("track-list", {})
-    local filename_no_ext_lower = nil
 
     for i = 1, #all_tracks do
         local track = all_tracks[i]
@@ -53,28 +52,10 @@ local function select_sdh_if_no_ext_sub()
                 if ((lang and lang:find("^eng?") ~= nil)) and ((track["hearing-impaired"]) or (track.title and track.title:find("SDH") ~= nil)) then
                     new_sid = track.id
                 end
-            else
-                local is_del, is_gle = false, false
-                if del == -1 then
-                    is_del = lang == "del"
-                end
-                if not is_del and gle == -1 then
-                    is_gle = lang == "gle"
-                end
-
-                if is_del or is_gle then
-                    if filename_no_ext_lower == nil then
-                        filename_no_ext_lower = mp.get_property("filename/no-ext", ""):lower()
-                    end
-
-                    if track.title:lower():sub(1, #filename_no_ext_lower) == filename_no_ext_lower then
-                        if is_del then
-                            del = track.id
-                        else
-                            gle = track.id
-                        end
-                    end
-                end
+            elseif del == -1 and lang == "del" then
+                del = track.id
+            elseif gle == -1 and lang == "gle" then
+                gle = track.id
             end
 
             if first_sid == -1 then
