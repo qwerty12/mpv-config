@@ -36,7 +36,7 @@ local function select_sdh_if_no_ext_sub()
     end
     local new_sid = -1
     local first_sid = -1
-    local del, gle = -1, -1
+    local cha, del, gle = -1, -1, -1
 
     local current_sid = mp.get_property_number("sid", -1)
     local all_tracks = mp.get_property_native("track-list", {})
@@ -52,6 +52,8 @@ local function select_sdh_if_no_ext_sub()
                 if ((lang and lang:find("^eng?") ~= nil)) and ((track["hearing-impaired"]) or (track.title and track.title:find("SDH") ~= nil)) then
                     new_sid = track.id
                 end
+            elseif cha == -1 and lang == "cha" then
+                cha = track.id
             elseif del == -1 and lang == "del" then
                 del = track.id
             elseif gle == -1 and lang == "gle" then
@@ -64,13 +66,25 @@ local function select_sdh_if_no_ext_sub()
         end
     end
 
-    if gle ~= -1 and del ~= -1 then
-        if del ~= current_sid then
-            mp.set_property_number("sid", del)
+    if cha ~= -1 or del ~= -1 then
+        new_sid = cha
+        local snd_sid = del
+
+        if new_sid == -1 then
+            new_sid = del
+            snd_sid = gle
         end
-        mp.set_property_number("secondary-sid", gle)
-        secondary_sub_profile_applied = true
-        mp.command("no-osd apply-profile secondary-subs")
+
+        if new_sid ~= current_sid then
+            mp.set_property_number("sid", new_sid)
+        end
+
+        if snd_sid ~= -1 then
+            mp.set_property_number("secondary-sid", snd_sid)
+            secondary_sub_profile_applied = true
+            mp.command("no-osd apply-profile secondary-subs")
+        end
+
         return
     end
 
