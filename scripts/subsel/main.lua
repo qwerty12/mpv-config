@@ -35,7 +35,6 @@ local function select_sdh_if_no_ext_sub()
         mp.dispatch_events(false)
     end
     local new_sid = -1
-    local first_sid = -1
     local cha, del, gle = -1, -1, -1
 
     local current_sid = mp.get_property_number("sid", -1)
@@ -59,10 +58,6 @@ local function select_sdh_if_no_ext_sub()
             elseif gle == -1 and lang == "gle" then
                 gle = track.id
             end
-
-            if first_sid == -1 then
-                first_sid = track.id
-            end
         end
     end
 
@@ -75,21 +70,13 @@ local function select_sdh_if_no_ext_sub()
             snd_sid = gle
         end
 
-        if new_sid ~= current_sid then
-            mp.set_property_number("sid", new_sid)
-        end
+        mp.set_property_number("sid", new_sid)
 
         if snd_sid ~= -1 then
             mp.set_property_number("secondary-sid", snd_sid)
             secondary_sub_profile_applied = true
             mp.command("no-osd apply-profile secondary-subs")
         end
-
-        return
-    end
-
-    if current_sid == -1 and new_sid == -1 and first_sid ~= -1 and all_tracks[first_sid]["lang"] == nil then
-        new_sid = first_sid
     end
 
     if new_sid ~= -1 then
