@@ -375,7 +375,6 @@ function on_file_loaded()
   end
 end
 
-local on_vo_configured = nil
 function on_start_file()
   refresh_globals()
   filename = mp.get_property("filename")
@@ -393,21 +392,7 @@ function on_start_file()
     -- a directory or playlist has been loaded, let's not do anything as mpv will expand it into files
     if ext and filetype_lookup[ext:lower()] then
       msg.info("Loading files from playing files directory")
-      if on_vo_configured then
-        playlist()
-      else
-        on_vo_configured = function (_, value)
-          if not value then return end
-          mp.unobserve_property(on_vo_configured)
-          local on_idle
-          on_idle = function()
-            mp.unregister_idle(on_idle)
-            playlist()
-          end
-          mp.register_idle(on_idle)
-        end
-        mp.observe_property("vo-configured", "bool", on_vo_configured)
-      end
+      playlist()
     end
   end
 end
@@ -934,7 +919,6 @@ function playlist(force_dir)
         cur = true
       elseif filenames[file] then
         -- skip files already in playlist
-        break
       elseif cur == true or settings.loadfiles_always_append then
         mp.commandv("loadfile", utils.join_path(dir, file), appendstr)
         msg.info("Appended to playlist: " .. file)
@@ -960,7 +944,9 @@ function playlist(force_dir)
     showplaylist()
   elseif settings.display_osd_feedback then
     if c2 > 0 or c>0 then
-      mp.add_timeout(1, function() mp.osd_message("Added "..c + c2.." more files to playlist") end)
+      mp.osd_message("Added "..c + c2.." files to playlist")
+    else
+      mp.osd_message("No additional files found")
     end
   end
   return c + c2
@@ -1062,12 +1048,12 @@ function save_playlist(filename)
 end
 
 function alphanumsort(a, b)
-  local function padnum(n, d)
-    return #d > 0 and ("%03d%s%.12f"):format(#n, n, tonumber(d) / (10 ^ #d))
-        or ("%03d%s"):format(#n, n)
+  local function padnum(d)
+    local dec, n = string.match(d, "(%.?)0*(.+)")
+    return #dec > 0 and ("%.12f"):format(d) or ("%s%03d%s"):format(dec, #n, n)
   end
-  return tostring(a):lower():gsub("0*(%d+)%.?(%d*)",padnum)..("%3d"):format(#b)
-       < tostring(b):lower():gsub("0*(%d+)%.?(%d*)",padnum)..("%3d"):format(#a)
+  return tostring(a):lower():gsub("%.?%d+",padnum)..("%3d"):format(#b)
+       < tostring(b):lower():gsub("%.?%d+",padnum)..("%3d"):format(#a)
 end
 
 -- fast sort algo from https://github.com/zsugabubus/dotfiles/blob/master/.config/mpv/scripts/playlist-filtersort.lua
