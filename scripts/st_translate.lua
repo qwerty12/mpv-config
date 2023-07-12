@@ -40,7 +40,7 @@ local function urlencode(str)
 end
 
 local function gt()
-    local sub_text = mp.get_property("sub-text")
+    local sub_text = mp.get_property("secondary-sub-text") or mp.get_property("sub-text")
     if not sub_text then return end
     sub_text = trim(sub_text)
     if sub_text == '' then return end
