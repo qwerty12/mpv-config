@@ -40,16 +40,17 @@ Most notable features:
 
     _List of all the possible places where it can be located is documented here: https://mpv.io/manual/master/#files_
 
-    On Linux and macOS these terminal commands can be used to install or update uosc and thumbfast (if wget and unzip are installed):
+    On Linux and macOS these terminal commands can be used to install or update uosc (if wget and unzip are installed):
 
     ```sh
-    mkdir -pv ~/.config/mpv/script-opts/
-    rm -rf ~/.config/mpv/scripts/uosc_shared
+    config_dir="${XDG_CONFIG_HOME:-~/.config}"
+    mkdir -pv "$config_dir"/mpv/script-opts/
+    rm -rf "$config_dir"/mpv/scripts/uosc_shared
     wget -P /tmp/ https://github.com/tomasklaen/uosc/releases/latest/download/uosc.zip
-    unzip -od ~/.config/mpv/ /tmp/uosc.zip
+    unzip -od "$config_dir"/mpv/ /tmp/uosc.zip
     rm -fv /tmp/uosc.zip
     ```
-    
+
     On Windows these equivalent PowerShell commands can be used:
     ```PowerShell
     New-Item -ItemType Directory -Force -Path "$env:APPDATA/mpv/script-opts/"

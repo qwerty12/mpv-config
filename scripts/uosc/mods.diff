@@ -1,28 +1,7 @@
-diff --git a/scripts/uosc.lua b/scripts/uosc.lua
-index 4fa7b80..635523a 100644
---- a/scripts/uosc.lua
-+++ b/scripts/uosc.lua
-@@ -10,7 +10,7 @@ INFINITY = 1e309
- QUARTER_PI_SIN = math.sin(math.pi / 4)
- 
- -- Enables relative requires from `scripts` directory
--package.path = package.path .. ';' .. mp.find_config_file('scripts') .. '/?.lua'
-+--package.path = package.path .. ';' .. mp.find_config_file('scripts') .. '/?.lua'
- 
- require('uosc_shared/lib/std')
- 
-@@ -685,7 +685,6 @@ mp.register_event('file-loaded', function()
- 	itable_delete_value(state.history, path)
- 	state.history[#state.history + 1] = path
- 	set_state('path', path)
--	Elements:flash({'top_bar'})
- end)
- mp.register_event('end-file', function(event)
- 	set_state('path', nil)
-diff --git a/scripts/uosc_shared/elements/BufferingIndicator.lua b/scripts/uosc_shared/elements/BufferingIndicator.lua
-index e2aa071..c1397e4 100644
---- a/scripts/uosc_shared/elements/BufferingIndicator.lua
-+++ b/scripts/uosc_shared/elements/BufferingIndicator.lua
+diff --git a/scripts/uosc/elements/BufferingIndicator.lua b/scripts/uosc/elements/BufferingIndicator.lua
+index 8344774..8379cec 100644
+--- a/scripts/uosc/elements/BufferingIndicator.lua
++++ b/scripts/uosc/elements/BufferingIndicator.lua
 @@ -11,6 +11,7 @@ function BufferingIndicator:init()
  end
  
@@ -31,10 +10,10 @@ index e2aa071..c1397e4 100644
  	local cache = state.cache_underrun or state.cache_buffering and state.cache_buffering < 100
  	local player = state.core_idle and not state.eof_reached
  	if self.enabled then
-diff --git a/scripts/uosc_shared/elements/PauseIndicator.lua b/scripts/uosc_shared/elements/PauseIndicator.lua
-index 82a7e43..f900bc9 100644
---- a/scripts/uosc_shared/elements/PauseIndicator.lua
-+++ b/scripts/uosc_shared/elements/PauseIndicator.lua
+diff --git a/scripts/uosc/elements/PauseIndicator.lua b/scripts/uosc/elements/PauseIndicator.lua
+index 3f7e021..e73131d 100644
+--- a/scripts/uosc/elements/PauseIndicator.lua
++++ b/scripts/uosc/elements/PauseIndicator.lua
 @@ -61,7 +61,7 @@ function PauseIndicator:render()
  	end
  
@@ -44,10 +23,10 @@ index 82a7e43..f900bc9 100644
  	size = size + size * (1 - self.opacity)
  
  	if self.paused then
-diff --git a/scripts/uosc_shared/elements/Timeline.lua b/scripts/uosc_shared/elements/Timeline.lua
-index 158267d..d37762d 100644
---- a/scripts/uosc_shared/elements/Timeline.lua
-+++ b/scripts/uosc_shared/elements/Timeline.lua
+diff --git a/scripts/uosc/elements/Timeline.lua b/scripts/uosc/elements/Timeline.lua
+index 29708bf..16500d3 100644
+--- a/scripts/uosc/elements/Timeline.lua
++++ b/scripts/uosc/elements/Timeline.lua
 @@ -89,6 +89,16 @@ function Timeline:get_time_at_x(x)
  	return state.duration * progress
  end
@@ -83,10 +62,10 @@ index 158267d..d37762d 100644
  	ass:draw_start()
  	ass:rect_cw(bax, bay, fax, bby) --left of progress
  	ass:rect_cw(fbx, bay, bbx, bby) --right of progress
-diff --git a/scripts/uosc_shared/elements/TopBar.lua b/scripts/uosc_shared/elements/TopBar.lua
-index 0bb3e64..92a8b54 100644
---- a/scripts/uosc_shared/elements/TopBar.lua
-+++ b/scripts/uosc_shared/elements/TopBar.lua
+diff --git a/scripts/uosc/elements/TopBar.lua b/scripts/uosc/elements/TopBar.lua
+index 10cd2b7..21e8ece 100644
+--- a/scripts/uosc/elements/TopBar.lua
++++ b/scripts/uosc/elements/TopBar.lua
 @@ -61,7 +61,7 @@ function TopBar:init()
  
  	-- Order aligns from right to left
@@ -141,10 +120,10 @@ index 0bb3e64..92a8b54 100644
  				title_ay = by + 1
  			end
  
-diff --git a/scripts/uosc_shared/lib/menus.lua b/scripts/uosc_shared/lib/menus.lua
+diff --git a/scripts/uosc/lib/menus.lua b/scripts/uosc/lib/menus.lua
 index 44be3c3..dc97b9d 100644
---- a/scripts/uosc_shared/lib/menus.lua
-+++ b/scripts/uosc_shared/lib/menus.lua
+--- a/scripts/uosc/lib/menus.lua
++++ b/scripts/uosc/lib/menus.lua
 @@ -84,6 +84,7 @@ function create_select_tracklist_type_menu_opener(menu_title, track_type, track_
  		local first_item_index = #items + 1
  		local active_index = nil
@@ -170,10 +149,10 @@ index 44be3c3..dc97b9d 100644
  					value = track.id,
  					active = track.selected,
  				}
-diff --git a/scripts/uosc_shared/lib/utils.lua b/scripts/uosc_shared/lib/utils.lua
+diff --git a/scripts/uosc/lib/utils.lua b/scripts/uosc/lib/utils.lua
 index f25c52e..a1ee79a 100644
---- a/scripts/uosc_shared/lib/utils.lua
-+++ b/scripts/uosc_shared/lib/utils.lua
+--- a/scripts/uosc/lib/utils.lua
++++ b/scripts/uosc/lib/utils.lua
 @@ -208,6 +208,13 @@ function ass_escape(str)
  	return str
  end
@@ -213,3 +192,15 @@ index f25c52e..a1ee79a 100644
  		if index then mp.commandv('playlist-play-index', index - 1) return true end
  	end
  	return false
+diff --git a/scripts/uosc/main.lua b/scripts/uosc/main.lua
+index 0394e35..0d2734d 100644
+--- a/scripts/uosc/main.lua
++++ b/scripts/uosc/main.lua
+@@ -682,7 +682,6 @@ mp.register_event('file-loaded', function()
+ 	itable_delete_value(state.history, path)
+ 	state.history[#state.history + 1] = path
+ 	set_state('path', path)
+-	Elements:flash({'top_bar'})
+ end)
+ mp.register_event('end-file', function(event)
+ 	set_state('path', nil)
